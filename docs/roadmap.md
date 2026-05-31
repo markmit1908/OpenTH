@@ -48,6 +48,8 @@ The repository is a **validated single-phase flow-network kernel** — effective
   **energy equation** (non-isothermal). Compressible *and* incompressible.
 - ✅ **Robustness** to ~Mach 0.74 (isothermal choking limit) via the compressible
   pressure-correction term.
+- ✅ **Gravity / buoyancy** (`g·ρ·Δz` through node elevations) → natural circulation in
+  heated loops.
 - ✅ **Components** — pipe (friction + inertia), valve, pump/compressor (head curve + shaft
   work), pressure / mass-flow boundaries, constant nodal heat source.
 - ✅ **Two modelling APIs** — name-based `FlowModel` and the port/connection `Circuit`
@@ -68,7 +70,7 @@ The vision's version stack, with status and the gate that "closes" each phase:
 |---------|-------|--------|--------------------------|
 | v0.1 | Incompressible single-phase | ✅ | analytic friction (series/parallel) |
 | v0.2 | Compressible ideal gas (steady + transient + energy) | ✅ | isothermal pipe law; water-hammer; blow-down |
-| v0.3 | Real-fluid properties + buoyancy/gravity | ◑ Now | natural-circulation loop |
+| v0.3 | Buoyancy/gravity ✅ + real-fluid properties | ◑ Now | natural-circulation loop ✅ |
 | v0.4 | Heat structures & conjugate heat transfer | ☐ Next | heat-exchanger transient |
 | v0.5 | Controls, trips & rotating-machine dynamics | ☐ Next | pump coastdown |
 | v0.6 | Reactor point kinetics | ☐ Next | reactivity-insertion transient |
@@ -77,11 +79,14 @@ The vision's version stack, with status and the gate that "closes" each phase:
 | v1.0 | Drift-flux two-phase | ☐ Later | boiling-channel / loop benchmarks |
 | — | Two-fluid model | ☐ Later (research) | — |
 
-**v0.3 — real fluids + buoyancy** *(Now).* Add an `equation-of-state` layer beyond ideal
-gas / constant density: helium real properties, then sodium / lead / FLiBe / water-steam
-property tables behind the existing `FluidModel` ABC. Activate the **gravity/buoyancy term**
-in the momentum balance (the `Pipe.angle`/`Node.elevation` fields exist but are not yet used)
-— the prerequisite for natural circulation.
+**v0.3 — buoyancy + real fluids** *(Now).* The **gravity/buoyancy term** is now active in the
+momentum balance (`g·ρ·Δz` through `Node.elevation`, with `SolverConfig.gravity` and
+`add_pipe(delta_elevation=…)`); a heated closed loop develops **natural circulation**, which
+spins up transiently and vanishes with gravity off (`tests/test_buoyancy.py`,
+`examples/natural_circulation.py`). Still to do: an `equation-of-state` layer beyond ideal
+gas / constant density — helium real properties, then sodium / lead / FLiBe / water-steam
+tables behind the existing `FluidModel` ABC (incl. liquid thermal expansion, so liquids also
+drive buoyancy).
 
 **v0.4 — heat structures.** A `HeatStructure` (wall thermal mass + 1D conduction) and a
 `HeatExchanger` (primary/secondary coupling), plus wall heat-transfer correlations so
@@ -131,7 +136,7 @@ every release publishes benchmark reports.
 |---|-----------|-----------|--------|
 | 1 | Analytic pipe friction | steady momentum/continuity | ✅ |
 | 2 | Pressure-vessel blow-down | compressible transient | ✅ (single-phase) |
-| 3 | Natural-circulation loop | buoyancy + energy | ☐ (needs v0.3 gravity) |
+| 3 | Natural-circulation loop | buoyancy + energy | ✅ (gas; liquid needs real fluids) |
 | 4 | Heat-exchanger transient | conjugate heat transfer | ☐ (v0.4) |
 | 5 | Pump coastdown | inertia + machine dynamics | ☐ (v0.5) |
 | 6 | Simple PWR loop | integrated single-phase loop | ☐ |
@@ -189,10 +194,9 @@ So the MVP is gated on **v0.4 + v0.5**; it then becomes benchmark #7 and the fla
 
 ## 8. Near-term next steps (Now → Next)
 
-1. **Activate gravity/buoyancy** in the momentum balance (use `angle`/`elevation`) and add a
-   **natural-circulation** benchmark (#3). *(smallest step with the biggest reactor payoff.)*
-2. **Real-fluid property layer** behind `FluidModel` (helium real props first), with a clean
-   table/correlation interface.
+1. ~~Activate gravity/buoyancy + a natural-circulation benchmark (#3).~~ ✅ **done.**
+2. **Real-fluid property layer** behind `FluidModel` (helium real props first; liquid thermal
+   expansion so liquids drive buoyancy too), with a clean table/correlation interface.
 3. **Heat structures + heat exchanger** components and wall heat-transfer correlations (v0.4).
 4. **Pump coastdown / machine dynamics** and a first **control block** (v0.5).
 5. **CI** running the test suite + benchmark regressions on every PR.

@@ -263,8 +263,10 @@ class PCIMSolver(Solver):
                 e.mdot = 0.0
                 continue
             conv = e.convective_dp(rho_up, rho_down, e.mdot)
-            # e.head() is a pump/compressor pressure rise assisting forward flow.
-            drive = (e.upstream.state.p0 - e.downstream.state.p0) + e.head() - conv
+            # e.head() is a pump/compressor pressure rise; _gravity_head is the hydrostatic
+            # term (buoyancy when densities differ) — both assist forward flow.
+            drive = ((e.upstream.state.p0 - e.downstream.state.p0)
+                     + e.head() + self._gravity_head(e, 0.5 * (rho_up + rho_down)) - conv)
             target = math.copysign(math.sqrt(abs(drive) / k), drive)
             e.mdot += relax * (target - e.mdot)
 
@@ -281,7 +283,8 @@ class PCIMSolver(Solver):
             a = e.inertance() / dt          # inertia coefficient
             quad = alpha * k                # quadratic friction coefficient
             conv = e.convective_dp(rho_up, rho_down, e.mdot)
-            dp = e.upstream.state.p0 - e.downstream.state.p0 + e.head()  # + pump/compressor
+            dp = (e.upstream.state.p0 - e.downstream.state.p0
+                  + e.head() + self._gravity_head(e, 0.5 * (rho_up + rho_down)))
             # a*mdot + quad*mdot|mdot| = a*mdot_o + alpha*dp - alpha*conv - resid_o
             rhs = a * mdot_o[e.id] + alpha * dp - alpha * conv - resid_o[e.id]
             e.mdot = self._solve_momentum(a, quad, rhs)
@@ -317,8 +320,21 @@ class PCIMSolver(Solver):
         else:
             friction = k * m_o * abs(m_o)
             conv = e.convective_dp(rho_up, rho_down, m_o)
-        dp_o = e.upstream.state.p0 - e.downstream.state.p0 + e.head()  # + pump/compressor
+        dp_o = (e.upstream.state.p0 - e.downstream.state.p0
+                + e.head() + self._gravity_head(e, 0.5 * (rho_up + rho_down)))
         return (1.0 - alpha) * (friction + conv - dp_o)
+
+    def _gravity_head(self, e: Element, rho_face: float) -> float:
+        """Hydrostatic pressure that assists forward flow: g * rho_face * (z_up - z_down).
+
+        Density-weighted, so when two legs of a loop carry fluid at different temperatures
+        (hence densities) their heads differ and the imbalance drives natural circulation.
+        Zero when the gravity is off or the two ends are at the same elevation.
+        """
+        dz = e.upstream.elevation - e.downstream.elevation
+        if dz == 0.0:
+            return 0.0
+        return self.config.gravity * rho_face * dz
 
     @staticmethod
     def _solve_momentum(a: float, b: float, rhs: float) -> float:

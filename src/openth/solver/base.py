@@ -38,6 +38,10 @@ class SolverConfig:
     # Solve the energy equation for temperature (non-isothermal). Default off: the flow is
     # isothermal and temperatures stay at their initial/boundary values.
     solve_energy: bool = False
+    # Gravitational acceleration [m/s^2] for the hydrostatic/buoyancy term. Acts through the
+    # node elevations, so it is inert when all elevations are zero (flat networks). Set to 0
+    # to disable gravity entirely.
+    gravity: float = 9.80665
 
     def __post_init__(self) -> None:
         if not 0.5 <= self.alpha <= 1.0:

@@ -115,12 +115,21 @@ model.add_pipe(
     diameter=0.5,            # m
     friction_factor=0.02,    # Darcy f (default 0.02)
     n_cells=20,              # subdivide into 20 finite-volume cells (default 1)
+    delta_elevation=0.0,     # height of downstream above upstream [m] (default 0)
     name="pipe",             # optional; defaults to "inlet->outlet"
 )
 ```
 
 `n_cells=20` builds 20 pipe segments and 19 internal nodes between `inlet` and `outlet`
 (21 nodes, 20 elements total). More cells = finer spatial resolution.
+
+**Gravity / elevation.** `delta_elevation` sets how far the downstream node sits above the
+upstream one (and interpolates the internal cells), so the hydrostatic term `g·ρ·Δz` enters
+the momentum balance. It is zero by default (horizontal). With the energy equation on,
+temperature differences between legs give density differences and hence **buoyancy** — a
+heated closed loop develops natural circulation with no pump (see
+`examples/natural_circulation.py`). Disable gravity with `SolverConfig(gravity=0.0)`. A
+closed loop still needs one `pressure_boundary` as its reference.
 
 ### Valves
 

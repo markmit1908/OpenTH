@@ -58,18 +58,31 @@ class FlowModel:
 
     def add_pipe(self, upstream: str, downstream: str, *, length: float, diameter: float,
                  friction_factor: float = 0.02, n_cells: int = 1,
-                 name: str | None = None) -> FlowModel:
+                 delta_elevation: float = 0.0, name: str | None = None) -> FlowModel:
         """Add a pipe from ``upstream`` to ``downstream``, subdivided into ``n_cells``
-        finite-volume segments (with ``n_cells - 1`` internal nodes)."""
+        finite-volume segments (with ``n_cells - 1`` internal nodes).
+
+        ``delta_elevation`` is the height of ``downstream`` above ``upstream`` [m]; it sets
+        the downstream node's elevation (= upstream's + delta) and interpolates the internal
+        cells, so gravity/buoyancy act correctly along the run. Default 0 (horizontal).
+        """
         if n_cells < 1:
             raise ValueError("n_cells must be >= 1")
         name = name or f"{upstream}->{downstream}"
         area = 0.25 * math.pi * diameter * diameter
         dx = length / n_cells
         half_cell = 0.5 * dx * area  # each segment gives half its cell volume to each end node
-        prev = self.node(upstream)
+        upstream_node = self.node(upstream)
+        z0 = upstream_node.elevation
+        if delta_elevation:
+            self.node(downstream).elevation = z0 + delta_elevation
+        prev = upstream_node
         for k in range(n_cells):
-            nxt = self.node(downstream) if k == n_cells - 1 else self.node(f"{name}#c{k}")
+            if k == n_cells - 1:
+                nxt = self.node(downstream)
+            else:
+                nxt = self.node(f"{name}#c{k}")
+                nxt.elevation = z0 + delta_elevation * (k + 1) / n_cells
             prev.volume += half_cell
             nxt.volume += half_cell
             seg_id = name if n_cells == 1 else f"{name}#s{k}"

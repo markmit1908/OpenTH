@@ -94,6 +94,10 @@ addition. With the compressible pressure-correction term (step 4) the solve is r
 ~Mach 0.74 (the isothermal choking limit `1/√γ`); near choking it becomes mesh-sensitive,
 and genuine transonic/choked handling is future work.
 
+A **gravity/buoyancy** term `g·ρ_face·(z_up−z_down)` (from the `ρg cosθ` term of eqs. 2/10,
+via node elevations) is added to the momentum drive. Combined with the energy equation it
+gives density-driven **natural circulation** in heated loops, which bootstraps transiently.
+
 ## Benchmarks to validate against (Section 5)
 
 1. **Steady isothermal/non-isothermal pipeline** — compare pressure ratio vs. outlet Mach

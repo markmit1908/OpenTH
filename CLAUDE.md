@@ -77,9 +77,13 @@ to the paper's equations — read it before touching the numerics):
   the liquid variant. Each also provides `drho_dp` (compressibility) and
   `temperature_from_enthalpy` for the transient/energy solves.
 - **`solver/`** — `PCIMSolver` (segregated SIMPLE-style loops), `SolverConfig` (notably
-  `alpha ∈ [0.5,1]` for the transient, `relaxation ∈ (0,1]`, and `solve_energy` to enable
-  the non-isothermal energy solve), and `linear.py` (Thomas for series pipelines, scipy
-  sparse for networks — the solver currently uses sparse).
+  `alpha ∈ [0.5,1]` for the transient, `relaxation ∈ (0,1]`, `solve_energy` for the
+  non-isothermal energy solve, and `gravity` [m/s²] for the buoyancy term), and `linear.py`
+  (Thomas for series pipelines, scipy sparse for networks — the solver currently uses sparse).
+  Gravity enters the momentum drive as `g·ρ_face·(z_up−z_down)` via `Node.elevation` (set by
+  `FlowModel.add_pipe(delta_elevation=…)`); inert when elevations are 0. With the energy
+  solve on, temperature-driven density differences make this the **buoyancy** that drives
+  natural circulation (which bootstraps transiently, not from a cold steady start).
 - **`model.py`** — `FlowModel`, the high-level builder/facade most user code and the
   benchmarks go through: name-based nodes (auto-created), `add_pipe(..., n_cells=N)` that
   subdivides into finite-volume cells and assigns control volumes, callable (time-varying)

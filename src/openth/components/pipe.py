@@ -29,7 +29,8 @@ class Pipe(Element):
     length: float = 1.0          # dx [m]
     diameter: float = 0.0        # D [m]
     friction_factor: float = 0.02  # Darcy f (constant in the paper's examples)
-    angle: float = 0.0           # theta: centreline-to-vertical angle [rad] (gravity; unused yet)
+    # Gravity acts through the end nodes' elevations (Node.elevation), so it handles
+    # arbitrary network geometry without a per-pipe angle.
 
     @property
     def area(self) -> float:

@@ -25,9 +25,10 @@ OpenTH/
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
-├── tests/            fluids·network·linear·steady·transient·energy·pump·model·benchmarks (35 passing)
+├── tests/            fluids·network·linear·steady·transient·energy·pump·buoyancy·model·
+│                      benchmarks·circuit·api  (46 passing)
 ├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop ·
-│                      circuit_loop · quickstart.ipynb
+│                      circuit_loop · natural_circulation · quickstart.ipynb
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── vision-statement.md  OpenTH founding concept (north star)
@@ -50,11 +51,12 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **35 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+- `python -m pytest` → **46 passed** (fluid EOS, topology, Thomas solver, steady — incl.
   high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
   — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — the
-  pump/compressor: uphill flow, operating point, temperature rise — and the `FlowModel`
-  facade + the four Section 5 benchmarks)
+  pump/compressor: uphill flow, operating point, temperature rise — gravity/buoyancy:
+  hydrostatic column + natural circulation — the `FlowModel` facade, the `Circuit`
+  port/connection API, and the four Section 5 benchmarks)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
@@ -80,6 +82,10 @@ upwind convection on the converged flow field, alternating with the pressure loo
   pressure-driven range to ~Mach 0.74 (the choking limit); flow under-relaxation tames the
   convective feedback; `_converge_flows_only` handles no-interior-unknown networks; the
   energy `h₀→T` step is change-limited to keep the kinetic coupling stable.
+- **Gravity / buoyancy**: a hydrostatic term `g·ρ_face·(z_up−z_down)` in the momentum drive
+  (`Node.elevation`, `SolverConfig.gravity`, `add_pipe(delta_elevation=…)`). Validated by an
+  exact hydrostatic column and by transient **natural circulation** in a heated closed loop
+  (flow spins up from rest, in the buoyancy direction, and vanishes with gravity off).
 
 ## User model & benchmarks — done ✅
 
