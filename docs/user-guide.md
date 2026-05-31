@@ -62,15 +62,21 @@ this for you, creating the internal nodes and assigning control volumes.
 
 ## 3. Building a model
 
-Everything goes through `openth.model.FlowModel`. Nodes are created automatically the
-first time you name them.
+Everything goes through the high-level model, exposed at the top level as `th.Model` (an
+alias of `openth.model.FlowModel`). Nodes are created automatically the first time you name
+them.
 
 ```python
-from openth.model import FlowModel
-from openth.fluids import helium
+import openth as th
 
-model = FlowModel(fluid=helium())          # one working fluid per model
+model = th.Model(fluid=th.Fluid("helium"))   # one working fluid per model
 ```
+
+`th.Fluid("helium")` is a convenience factory for the built-ins; you can equally pass
+`th.helium()` or a custom `th.IdealGas(...)` / `th.Incompressible(...)` (see
+[Fluids](#7-fluids)). The lower-level imports (`from openth.model import FlowModel`,
+`from openth.fluids import helium`) still work — `import openth as th` just collects the
+common names in one place.
 
 ### Pipes
 
@@ -206,18 +212,19 @@ endpoints and junctions are usually what you want.
 ## 7. Fluids
 
 ```python
-from openth.fluids import helium, air, water, IdealGas, Incompressible
+import openth as th
 
-helium()   # ideal gas, R=2077, gamma=1.667
-air()      # ideal gas, R=287, gamma=1.4
-water()    # incompressible, rho=998
+th.Fluid("helium")   # factory for built-ins: "helium" (or "he"), "air", "water"
+th.helium()          # ideal gas, R=2077, gamma=1.667  (same as Fluid("helium"))
+th.air()             # ideal gas, R=287, gamma=1.4
+th.water()           # incompressible, rho=998
 
 # Custom gas / liquid:
-IdealGas(name="co2", R=189.0, gamma=1.29)
-Incompressible(name="oil", rho=850.0, cp=1900.0)
+th.IdealGas(name="co2", R=189.0, gamma=1.29)
+th.Incompressible(name="oil", rho=850.0, cp=1900.0)
 ```
 
-One fluid per `FlowModel`.
+One fluid per model.
 
 ## 8. Non-isothermal flow (the energy equation)
 

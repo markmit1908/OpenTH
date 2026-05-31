@@ -63,18 +63,18 @@ openth benchmark steady_pipeline  # generate + run one
 > Requires Python ≥ 3.10. (The system Python on this machine is 3.9.6 — create a venv with a newer
 > interpreter, e.g. via `pyenv` or `python3.12 -m venv .venv`.)
 
-Build a model with the high-level `FlowModel` API:
+Build a model with the high-level API (`th.Model` is the builder; add elements by name,
+set boundaries, then solve):
 
 ```python
-from openth.model import FlowModel
-from openth.fluids import helium
+import openth as th
 
-model = FlowModel(fluid=helium())
+model = th.Model(fluid=th.Fluid("helium"))
 model.add_pipe("inlet", "outlet", length=100, diameter=0.5, n_cells=20)  # 20 FV cells
 model.pressure_boundary("outlet", p=200e3, T=300)
 model.mass_flow_boundary("inlet", mdot=30, T=300)
 
-model.steady_state()
+model.steady_state()                       # or: model.run(dt, duration, record=...)
 print(model.pressure("inlet"), model.flow_through("inlet->outlet"))
 ```
 

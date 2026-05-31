@@ -84,6 +84,10 @@ to the paper's equations — read it before touching the numerics):
   benchmarks go through: name-based nodes (auto-created), `add_pipe(..., n_cells=N)` that
   subdivides into finite-volume cells and assigns control volumes, callable (time-varying)
   pressure boundaries, and `steady_state()` / `run(dt, duration, record=...)`.
+- **`__init__.py`** — re-exports the common API for `import openth as th`: `Model`
+  (alias of `FlowModel`), `Fluid(name)` factory, `helium`/`air`/`water`, the components,
+  and `PCIMSolver`/`SolverConfig`. The port/`connect()` API in the vision is not yet built;
+  `__init__` must not import `llm` (optional `[llm]` extra).
 - **`benchmarks.py`** — the paper's Section 5 cases built on `FlowModel` (`build_*`/`run_*`
   + a `BENCHMARKS` registry); exposed via `openth benchmark`.
 - **`io/`** — declarative dict/JSON (de)serialization; also the LLM exchange payload.
