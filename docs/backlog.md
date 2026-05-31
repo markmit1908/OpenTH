@@ -3,6 +3,18 @@
 A capture of requested capabilities not yet built, to be sequenced into the
 [roadmap](roadmap.md). Grouped by theme. Status: ✅ done · ◑ partial · ☐ planned.
 
+> **Reference point — Flownet (2000).** OpenTH targets the same single-phase flow-network
+> class as Flownet (same M-Tech / Potchefstroom lineage as the Greyvenstein PCIM method we
+> build on). OpenTH already matches Flownet's single-phase *core* — compressible &
+> incompressible flow, heat transfer (energy equation), fixed mass sources/sinks, **nodal
+> volumes**, **gravity in compressible flow**, **auto-subdivision of long pipes** (`n_cells`),
+> transient flow, a lumped heat exchanger/recuperator — and adds things Flownet 2000 lacked
+> (open source, JSON model files, a notebook, the port/`Circuit` API). The remaining Flownet
+> features map to backlog items below: **component breadth** (orifices/restrictors/ducts),
+> **variable fluid properties** (§4), **turbomachinery maturity** (§1), and **multi-fluid
+> subnetworks coupled through heat exchangers** (§3). Both codes lack **multi-phase** flow
+> (OpenTH has it on the roadmap, v0.7+).
+
 ---
 
 ## 1. Component catalog
@@ -16,11 +28,11 @@ node hooks (`heat_source`), so most are data + a small class, not solver changes
 
 | Code | Component | Status / notes |
 |------|-----------|----------------|
-| DW | Darcy–Weisbach pipe | ✅ `Pipe` (constant `f`; add Colebrook/Moody `f(Re, ε/D)`) |
+| DW | Darcy–Weisbach pipe | ✅ `Pipe` (constant `f`; add Colebrook/Moody `f(Re, ε/D)`; auto-subdivision is `n_cells`, cf. Flownet `OrRat`) |
 | CP | Compressible pipe | ✅ (compressible PCIM is the core) |
 | DR | Resistance duct | ◑ `Pipe`-like pure resistance; add as a named component |
 | HW | Hazen–Williams pipe | ☐ (liquid head-loss correlation) |
-| DG | Duct with area change | ☐ (variable `flow_area`; diffuser/nozzle, convective term) |
+| DG | Duct with area change | ☐ (variable `flow_area`; diffuser/nozzle. Flownet options to add: injected momentum & total-temperature effect on total pressure, and radial pressure gradients in curved ducts) |
 
 ### Orifices / restrictors
 
@@ -41,6 +53,15 @@ node hooks (`heat_source`), so most are data + a small class, not solver changes
 | TU | Turbine | ☐ (`Pump` with negative head / negative work) |
 | PDC | Positive-displacement compressor | ☐ |
 | CA | Cold-air unit | ☐ |
+
+**Turbomachinery maturity** (Flownet v4.5 has this; OpenTH's `Pump` is a single quadratic
+curve). To add: **performance maps** (pressure-ratio/flow/efficiency tables) including
+**variable blade angle**; **multiple compressors/turbines on a shared shaft**; and **shaft
+speed transients** (rotor inertia → spin-up/coastdown). Pairs with v0.5 machine dynamics.
+
+**Combustion chambers** (Flownet: 1- and 2-air-stream models) — out of the reactor-first
+primary scope, but a real component class. The PCIM method already anticipates it (the
+effective-friction term of eq. 11 is non-zero only for combusting/heated flow). ☐
 
 ### Heat exchangers
 
@@ -92,8 +113,14 @@ network coupled to the flow energy equation.
 - **Multiphase mixtures** — then liquid+gas: homogeneous-equilibrium → drift-flux → two-fluid
   (the v0.7+ physics track). Needs quality/void handling and phase-change EOS.
 
-Prerequisite: lift the current single-fluid-per-network restriction (needed for gas/liquid
-heat exchangers, `CX`, and any mixed loop).
+- **Multi-fluid subnetworks coupled through heat exchangers** — separate sub-networks, each
+  with its *own* fluid, joined only thermally by a `HeatExchanger` (e.g. a gas primary loop
+  and a water/salt secondary loop). This is a Flownet v4.5 capability and the natural
+  generalisation of today's single-fluid `HeatExchanger`; the solver already handles
+  hydraulically-disconnected subnetworks (used by the current HX).
+
+Prerequisite for all of the above: lift the single-fluid-per-network restriction (needed for
+gas/liquid heat exchangers, `CX`, and any mixed loop).
 
 ---
 
@@ -123,6 +150,11 @@ optional CoolProp/NIST REFPROP bridge):
 - **Web-based network editor + file input** — a browser UI to lay out nodes/components and
   edit the declarative model (built on the `io/` JSON schema above). Build/query also drives
   the planned two-way LLM interface.
+- **Input / consistency checking** — Flownet checks every run that the network is logically
+  structured and the boundary conditions are consistent. OpenTH has only light
+  `Network.validate()`; grow it into clear pre-solve diagnostics (disconnected/dangling
+  nodes, missing or contradictory boundaries, under/over-specified subnetworks, no pressure
+  reference, NaN inputs) with actionable messages.
 - **Online editor that runs the solver** — for **beginner users**: a hosted editor that
   invokes OpenTH and returns results/plots in the browser (no install). Pairs with the
   notebook/quickstart as the on-ramp; likely a small web service wrapping `FlowModel`/`Circuit`.
