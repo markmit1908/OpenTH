@@ -31,7 +31,7 @@ from dataclasses import dataclass, field
 
 from .components import MassFlowBoundary, Pipe, PressureBoundary, Pump, Valve
 from .fluids import FluidModel
-from .network import Network, Node
+from .network import HeatExchanger, Network, Node
 from .solver import PCIMSolver, SolverConfig, StepResult
 
 
@@ -110,6 +110,19 @@ class FlowModel:
                                       downstream=self.node(downstream), fluid=self.fluid,
                                       head_shutoff=head_shutoff, curve=curve,
                                       efficiency=efficiency))
+        return self
+
+    def add_heat_exchanger(self, hot: str, cold: str, *, UA: float,
+                           name: str | None = None) -> FlowModel:
+        """Couple two nodes thermally: heat ``UA*(T_hot - T_cold)`` flows hot -> cold.
+
+        Heat transfer only (no flow); used by the energy solve, so set
+        ``solve_energy=True``. The two nodes are usually on separate flow streams (the two
+        sides of a recuperator/heat exchanger).
+        """
+        name = name or f"hx_{hot}->{cold}"
+        self.network.add_heat_exchanger(
+            HeatExchanger(id=name, hot=self.node(hot), cold=self.node(cold), UA=UA))
         return self
 
     # ---- boundary conditions -------------------------------------------------------

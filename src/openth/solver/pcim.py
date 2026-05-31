@@ -129,7 +129,8 @@ class PCIMSolver(Solver):
             a = csr_matrix((data, (rows, cols)), shape=(n, n))
             p_corr = sparse_solve(a, b)
             for node in unknowns:
-                node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
+                dp = cfg.relaxation * float(p_corr[index[node.id]])
+                self._apply_pressure_correction(node, dp)
         return residual, cfg.max_outer_iterations
 
     # ---- transient time step -------------------------------------------------------
@@ -223,7 +224,8 @@ class PCIMSolver(Solver):
             a = csr_matrix((data, (rows, cols)), shape=(n, n))
             p_corr = sparse_solve(a, b)
             for node in unknowns:
-                node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
+                dp = cfg.relaxation * float(p_corr[index[node.id]])
+                self._apply_pressure_correction(node, dp)
         return residual, cfg.max_outer_iterations
 
     def _converge_flows_only(self, update_flows, time: float) -> StepResult:
@@ -439,6 +441,25 @@ class PCIMSolver(Solver):
                 data.append(kp)
                 rhs[i] = r
 
+        # Heat-exchanger couplings: a conductive link g = UA/cp on the total enthalpy that
+        # transfers heat hot -> cold (implicit, energy-conserving; ignores the small kinetic
+        # part of h0 at the low-velocity exchanger nodes).
+        for hx in net.heat_exchangers.values():
+            g = hx.UA / self._cp(hx.hot)
+            for node, other in ((hx.cold, hx.hot), (hx.hot, hx.cold)):
+                if node.id not in index:
+                    continue  # this side's temperature is pinned (boundary/fixed-T)
+                i = index[node.id]
+                rows.append(i)
+                cols.append(i)
+                data.append(g)
+                if other.id in index:
+                    rows.append(i)
+                    cols.append(index[other.id])
+                    data.append(-g)
+                else:
+                    rhs[i] += g * other.state.h0
+
         matrix = csr_matrix((data, (rows, cols)), shape=(m, m))
         h0_new = sparse_solve(matrix, rhs)
 
@@ -492,6 +513,19 @@ class PCIMSolver(Solver):
 
     def _density(self, node: Node) -> float:
         return self._node_fluid(node).density(node.state.p0, node.state.T)
+
+    def _cp(self, node: Node) -> float:
+        """Specific heat cp = dh/dT [J/(kg.K)] of the node's fluid (h is linear in T here)."""
+        fluid = self._node_fluid(node)
+        return fluid.enthalpy(1.0) - fluid.enthalpy(0.0)
+
+    @staticmethod
+    def _apply_pressure_correction(node: Node, dp: float) -> None:
+        """Apply a pressure correction, but keep the pressure positive: a too-large negative
+        correction would drive density <= 0 (and the resistance singular). Capping the drop
+        per iteration keeps the solve stable for stiff / disconnected networks; it does not
+        change the converged result (where the correction -> 0)."""
+        node.state.p0 = max(node.state.p0 + dp, 0.1 * node.state.p0)
 
     def _drho_dp(self, node: Node) -> float:
         return self._node_fluid(node).drho_dp(node.state.p0, node.state.T)

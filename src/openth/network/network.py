@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from .coupling import HeatExchanger
 from .element import Element
 from .node import Node
 
@@ -18,6 +19,7 @@ from .node import Node
 class Network:
     nodes: dict[str, Node] = field(default_factory=dict)
     elements: dict[str, Element] = field(default_factory=dict)
+    heat_exchangers: dict[str, HeatExchanger] = field(default_factory=dict)
 
     def add_node(self, node: Node) -> Node:
         if node.id in self.nodes:
@@ -30,6 +32,13 @@ class Network:
             raise ValueError(f"duplicate element id: {element.id!r}")
         self.elements[element.id] = element
         return element
+
+    def add_heat_exchanger(self, hx: HeatExchanger) -> HeatExchanger:
+        """Register a thermal coupling (heat transfer only, used by the energy solve)."""
+        if hx.id in self.heat_exchangers:
+            raise ValueError(f"duplicate heat-exchanger id: {hx.id!r}")
+        self.heat_exchangers[hx.id] = hx
+        return hx
 
     def elements_at(self, node: Node) -> list[Element]:
         """All elements incident on ``node`` (used to assemble its continuity balance)."""

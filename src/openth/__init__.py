@@ -38,7 +38,7 @@ from .circuit import Circuit, Component, Pipe, Port, Pump, Valve
 from .components import MassFlowBoundary, PressureBoundary
 from .fluids import Fluid, FluidModel, IdealGas, Incompressible, air, helium, water
 from .model import FlowModel
-from .network import Element, Network, Node
+from .network import Element, HeatExchanger, Network, Node
 from .solver import PCIMSolver, SolverConfig
 
 __version__ = "0.0.1"
@@ -52,7 +52,7 @@ __all__ = [
     # fluids
     "Fluid", "FluidModel", "IdealGas", "Incompressible", "helium", "air", "water",
     # port-based components (for Circuit) + connection primitives
-    "Pipe", "Valve", "Pump", "Component", "Port",
+    "Pipe", "Valve", "Pump", "Component", "Port", "HeatExchanger",
     # boundary helpers (low-level) + topology / solver
     "PressureBoundary", "MassFlowBoundary",
     "Network", "Node", "Element", "PCIMSolver", "SolverConfig",
