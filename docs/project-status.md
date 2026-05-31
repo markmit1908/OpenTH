@@ -1,13 +1,14 @@
 # Project status & scaffold summary
 
-Snapshot of the initial FlowCalc scaffold (2026-05-30). Living document — update as the
-solver core lands.
+FlowCalc status snapshot (started 2026-05-30). Living document — update as the solver
+evolves. The steady, transient, and energy (non-isothermal) solves are now implemented and
+validated; the layout/decisions below trace how it got here.
 
 ## What was built
 
-A Python-first scaffold for **FlowCalc**, structured directly around Greyvenstein's PC/PCIM
-method (the segregated, SIMPLE-style implicit pressure-correction scheme described in
-[`papers/`](papers/Greyvenstein-2001-implicit-transient-pipe-networks.pdf), distilled in
+A Python-first implementation of **FlowCalc**, structured directly around Greyvenstein's
+PC/PCIM method (the segregated, SIMPLE-style implicit pressure-correction scheme described
+in [`papers/`](papers/Greyvenstein-2001-implicit-transient-pipe-networks.pdf), distilled in
 [`theory.md`](theory.md)).
 
 ```
@@ -22,8 +23,8 @@ FlowCalc/
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
-├── tests/            fluids · network · linear  (11 passing)
-├── examples/         pipeline_steady.py — the paper's §5.1 helium benchmark
+├── tests/            fluids · network · linear · steady · transient · energy  (23 passing)
+├── examples/         pipeline_steady · blowdown_transient · heated_pipe (paper §5.1/5.4 + non-isothermal)
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── theory.md     maps every module to the paper's equations
@@ -43,9 +44,9 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **22 passed** (fluid EOS, topology, Thomas solver, steady, transient
-  — march-to-steady, mass conservation, water-hammer — and energy: adiabatic h₀
-  conservation, heat addition, transient↔steady consistency)
+- `python -m pytest` → **23 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+  high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
+  — and energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
