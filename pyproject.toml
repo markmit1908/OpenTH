@@ -27,10 +27,12 @@ dev = [
 llm = [
     "anthropic>=0.40",
 ]
-# Jupyter notebook workflow (see examples/quickstart.ipynb).
+# Jupyter notebook workflow (see examples/quickstart.ipynb). ipykernel is what VS Code's
+# Jupyter extension needs; jupyterlab is for the standalone Lab UI.
 notebook = [
-    "jupyterlab>=4",
+    "ipykernel>=6",
     "matplotlib>=3.7",
+    "jupyterlab>=4",
 ]
 
 [project.scripts]
