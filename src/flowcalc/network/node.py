@@ -46,6 +46,11 @@ class Node:
     elevation: float = 0.0
     state: NodeState = field(default_factory=NodeState)
 
-    # Set True for nodes whose pressure/flow is imposed by a boundary condition; the
-    # solver excludes these rows from the pressure-correction system.
+    # Set True for nodes whose *pressure* is imposed (Dirichlet); the solver excludes
+    # these rows from the pressure-correction system. A node with an imposed mass flow
+    # (see MassFlowBoundary) stays an unknown and instead carries a non-zero mass_source.
     is_boundary: bool = False
+
+    # Imposed mass flow into the node [kg/s] (+ = inflow, - = outflow); a source term in
+    # the continuity balance. Zero for ordinary interior nodes.
+    mass_source: float = 0.0

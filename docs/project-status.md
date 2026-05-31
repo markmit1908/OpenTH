@@ -42,22 +42,32 @@ as the paper describes.
 
 ## Verified
 
-- `pytest` → **11 passed** (fluid EOS, topology, Thomas solver)
+- `python -m pytest` → **16 passed** (fluid EOS, topology, Thomas solver, + steady-state
+  validation: incompressible series/parallel, compressible isothermal pipe, mass balance)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
-- `examples/pipeline_steady.py` builds the 21-node helium pipeline and cleanly reports the
-  solver core as pending
+- `examples/pipeline_steady.py` reproduces the analytical isothermal compressible pipe-flow
+  pressure ratio to **0.00% error up to Mach 0.5**
 - `flowcalc --version` works
 
-## Deliberately left as the real work
+## Steady-state core — done ✅
 
-The numerical core is stubbed with `NotImplementedError` + `TODO(core)` rather than guessed
-at — physics transcribed from OCR should not be shipped as if correct:
+`PCIMSolver.steady_state` implements the segregated SIMPLE iteration (the dt→∞ limit of the
+paper's algorithm) with Picard density updates, assuming a fixed (isothermal) temperature
+field. Per-face momentum is `Δp = K·mdot·|mdot| + C` (friction `Element.resistance` +
+convective `Element.convective_dp`); continuity assembles the pressure-correction system,
+solved sparsely. Validated against the closed-form `p1²−p2² = G²RT(fL/D + 2ln(p1/p2))`.
 
-- `Pipe.momentum_coeffs` — eqs. (21)–(22)
-- `PCIMSolver.steady_state` / `.step` — the segregated loop, eqs. (12)–(34)
+## Still the real work
 
-Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) point to these and stress
-validating against the paper's benchmarks (Figs. 2–10) before trusting output.
+Stubbed with `NotImplementedError` + `TODO(core)`:
+
+- `PCIMSolver.step` — the **transient** time step (storage terms `V/Δt`, previous-time
+  level) + **energy equation** coupling, eqs. (13)–(34).
+- Non-pipe component closures beyond `Valve` (pump/compressor/turbine/orifice/heat-exchanger).
+
+Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) stress transcribing
+equations directly from the PDF and validating against the paper's benchmarks (Figs. 4–10
+for the transient) before trusting output.
 
 ## Environment note
 
@@ -71,5 +81,6 @@ pip install -e ".[dev,llm]"
 
 ## Suggested next step
 
-Implement the steady-state core, starting with `Pipe.momentum_coeffs`, and validate against
-the eq. (35)–(37) ODE benchmark in `examples/pipeline_steady.py`.
+Implement the **transient** time step (`PCIMSolver.step`): add the finite-volume storage
+terms and the energy-equation coupling, and validate against the sudden-valve-closure and
+pressure-vessel blow-down cases (Figs. 4–10).

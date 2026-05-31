@@ -1,9 +1,13 @@
 """Boundary conditions.
 
-The paper's examples use two kinds (Section 5): a fixed total pressure (e.g. inlet at
-700 kPa) and a fixed mass flow (e.g. outflow held at the steady-state value, or zero when
-a valve shuts). Boundaries are attached to nodes; a node marked ``is_boundary`` is removed
-from the pressure-correction unknowns and instead has its value imposed here.
+The paper's examples use two kinds (Section 5): a fixed pressure (e.g. inlet at 700 kPa,
+or outlet at 200 kPa) and a fixed mass flow (e.g. an outflow held at the steady-state
+value, or zero when a valve shuts).
+
+  * :class:`PressureBoundary` is a *Dirichlet* condition: it pins a node's pressure and
+    temperature, and the solver removes that node from the pressure-correction unknowns.
+  * :class:`MassFlowBoundary` is a *source*: the node stays an unknown (its pressure is
+    solved) and the imposed mass flow enters the node's continuity balance.
 """
 
 from __future__ import annotations
@@ -15,28 +19,28 @@ from ..network.node import Node
 
 @dataclass
 class PressureBoundary:
-    """Hold a node's total pressure (and temperature) fixed."""
+    """Hold a node's pressure (and temperature) fixed."""
 
     node: Node
-    p0: float
+    p: float
     T: float
 
     def apply(self) -> None:
         self.node.is_boundary = True
-        self.node.state.p0 = self.p0
+        self.node.state.p0 = self.p
         self.node.state.T = self.T
 
 
 @dataclass
 class MassFlowBoundary:
-    """Impose a mass flow into/out of a node (negative = outflow).
+    """Impose a mass flow into (+) or out of (-) a node [kg/s].
 
-    Used both for steady demand and for transient events such as a valve closing,
-    where ``mdot`` is driven to zero (see :class:`flowcalc.components.valve.Valve`).
+    Used both for steady demand and for transient events such as a valve closing, where
+    ``mdot`` is driven to zero. The node remains a pressure unknown.
     """
 
     node: Node
     mdot: float
 
     def apply(self) -> None:
-        self.node.is_boundary = True
+        self.node.mass_source = self.mdot

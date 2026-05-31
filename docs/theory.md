@@ -63,11 +63,20 @@ Weighing factor **α ∈ [0.5, 1]** (`SolverConfig.alpha`):
 The scheme conserves mass (important for closed loops like the PBMR Brayton cycle that
 motivated the method).
 
+## Implementation status
+
+The **steady-state solve is implemented** (`solver.PCIMSolver.steady_state`) as the dt→∞
+limit of the algorithm above: a segregated SIMPLE iteration with Picard density updates,
+assuming a fixed (isothermal) temperature field. It is validated to ~0% error against the
+closed-form isothermal compressible pipe law in `tests/test_steady.py` and
+`examples/pipeline_steady.py`. The **transient step and energy coupling are pending**
+(`solver.PCIMSolver.step`).
+
 ## Benchmarks to validate against (Section 5)
 
 1. **Steady isothermal/non-isothermal pipeline** — compare pressure ratio vs. outlet Mach
-   number to the ODE benchmark (eqs. 35–37). Implemented setup:
-   [`examples/pipeline_steady.py`](../examples/pipeline_steady.py). (Fig. 2/3.)
+   number to the ODE benchmark (eqs. 35–37). Implemented + validated:
+   [`examples/pipeline_steady.py`](../examples/pipeline_steady.py). (Fig. 2/3.) ✅
 2. **Sudden valve closure** in a 20 m pipe — pressure-wave amplitude/frequency vs. MOC and
    Lax–Wendroff (Fig. 4–7).
 3. **Branching network** valve closures (Fig. 8–9).

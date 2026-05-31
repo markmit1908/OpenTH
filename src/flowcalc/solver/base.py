@@ -18,22 +18,29 @@ class SolverConfig:
         Time-integration weighing factor in [0.5, 1] (paper Section 3). alpha=1 is fully
         implicit (1st-order), alpha=0.5 is Crank-Nicolson (2nd-order but prone to
         instability); alpha=0.6 is the recommended accuracy/stability compromise.
+        (Unused by the steady-state solve.)
+    relaxation : float
+        Pressure under-relaxation factor in (0, 1] for the segregated (SIMPLE) iteration;
+        smaller is more stable but slower. 0.7 is a typical default.
     max_outer_iterations : int
-        Maximum momentum<->energy outer iterations per time step.
+        Maximum segregated iterations (per time step, or for the steady solve).
     max_pressure_iterations : int
-        Inner pressure-correction iterations per outer iteration.
+        Inner pressure-correction iterations per outer iteration (transient).
     tol : float
-        Convergence tolerance on the pressure-correction residual.
+        Convergence tolerance on the (relative) mass-imbalance residual.
     """
 
     alpha: float = 0.6
-    max_outer_iterations: int = 50
+    relaxation: float = 0.7
+    max_outer_iterations: int = 200
     max_pressure_iterations: int = 20
-    tol: float = 1e-6
+    tol: float = 1e-8
 
     def __post_init__(self) -> None:
         if not 0.5 <= self.alpha <= 1.0:
             raise ValueError("alpha must lie in [0.5, 1.0] for a stable scheme (paper Section 3)")
+        if not 0.0 < self.relaxation <= 1.0:
+            raise ValueError("relaxation must lie in (0, 1]")
 
 
 @dataclass
