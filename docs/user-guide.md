@@ -32,7 +32,7 @@ Requires Python ≥ 3.10.
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"          # add ",llm" for the optional LLM interface
+pip install -e ".[dev]"          # extras: ",llm" (LLM interface), ",notebook" (Jupyter)
 ```
 
 Quick check:
@@ -41,6 +41,12 @@ Quick check:
 openth benchmark               # lists the paper's test cases
 python -m pytest                 # runs the test suite
 ```
+
+**Notebook workflow.** `pip install -e ".[notebook]"` adds JupyterLab and matplotlib; then
+`jupyter lab` and open [`examples/quickstart.ipynb`](../examples/quickstart.ipynb), a runnable
+tour (steady solve, transient plot, the `Circuit` API, and the benchmarks). If a notebook
+can't import `openth`, run Jupyter from the repo root or add `sys.path.insert(0, "src")` in
+the first cell (the quickstart does this automatically).
 
 ## 2. Core concepts
 

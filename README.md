@@ -63,6 +63,10 @@ openth benchmark steady_pipeline  # generate + run one
 > Requires Python ≥ 3.10. (The system Python on this machine is 3.9.6 — create a venv with a newer
 > interpreter, e.g. via `pyenv` or `python3.12 -m venv .venv`.)
 
+**In a notebook:** `pip install -e ".[notebook]"` (adds JupyterLab + matplotlib), then
+`jupyter lab` and open [`examples/quickstart.ipynb`](examples/quickstart.ipynb) — a steady
+solve, a transient plot, the `Circuit` API, and the benchmarks.
+
 Build a model with the high-level API (`th.Model` is the builder; add elements by name,
 set boundaries, then solve):
 

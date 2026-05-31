@@ -26,7 +26,8 @@ OpenTH/
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
 ├── tests/            fluids·network·linear·steady·transient·energy·pump·model·benchmarks (35 passing)
-├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop
+├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop ·
+│                      circuit_loop · quickstart.ipynb
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── vision-statement.md  OpenTH founding concept + roadmap (north star)

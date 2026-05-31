@@ -27,6 +27,11 @@ dev = [
 llm = [
     "anthropic>=0.40",
 ]
+# Jupyter notebook workflow (see examples/quickstart.ipynb).
+notebook = [
+    "jupyterlab>=4",
+    "matplotlib>=3.7",
+]
 
 [project.scripts]
 openth = "openth.cli:main"
@@ -48,6 +53,9 @@ addopts = "-ra"
 line-length = 100
 src = ["src", "tests"]
 target-version = "py310"
+# Notebooks follow their own conventions (compact cells, imports after a path-bootstrap);
+# the quickstart is verified by executing it, not by linting.
+extend-exclude = ["*.ipynb"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "NPY"]
