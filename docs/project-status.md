@@ -30,6 +30,7 @@ FlowCalc/
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── theory.md     maps every module to the paper's equations
+│   ├── user-guide.md end-user manual (FlowModel API + running the benchmarks)
 │   └── project-status.md   ← this file
 └── native/           stub for later C/C++ kernels
 ```

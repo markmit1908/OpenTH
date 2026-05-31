@@ -8,7 +8,8 @@ FlowCalc is a **fluid flow-network solver** implementing Greyvenstein's implicit
 **Pressure-Correction (PC / PCIM)** method (Int. J. Numer. Meth. Engng 2002; 53:1127–1143;
 PDF in `docs/papers/`, distilled in `docs/theory.md`). Python-first prototype; performance
 kernels are earmarked for later C/C++ reimplementation (`native/`), and a two-way LLM
-interface is planned (`src/flowcalc/llm/`).
+interface is planned (`src/flowcalc/llm/`). End-user docs (the `FlowModel` API, running the
+benchmarks) are in `docs/user-guide.md`.
 
 **Project status.** The **steady-state and transient solvers are implemented and
 validated**, including **non-isothermal flow** (energy-equation coupling). Steady matches

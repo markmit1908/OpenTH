@@ -59,6 +59,9 @@ print(model.pressure("inlet"), model.flow_through("inlet->outlet"))
 
 The paper's Section 5 cases live in `flowcalc.benchmarks` (and the `flowcalc benchmark` CLI).
 
+**Full instructions are in the [User Guide](docs/user-guide.md)** — building models, steady
+vs. transient runs, fluids, the energy equation, and generating/running the paper's tests.
+
 ## Layout
 
 | Path | Purpose |
