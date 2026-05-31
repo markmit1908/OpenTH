@@ -34,12 +34,30 @@ python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev,llm]"
 
-pytest                       # run tests
-python examples/pipeline_steady.py
+pytest                              # run tests
+flowcalc benchmark                  # list the paper's Section 5 test cases
+flowcalc benchmark steady_pipeline  # generate + run one
 ```
 
 > Requires Python ≥ 3.10. (The system Python on this machine is 3.9.6 — create a venv with a newer
 > interpreter, e.g. via `pyenv` or `python3.12 -m venv .venv`.)
+
+Build a model with the high-level `FlowModel` API:
+
+```python
+from flowcalc.model import FlowModel
+from flowcalc.fluids import helium
+
+model = FlowModel(fluid=helium())
+model.add_pipe("inlet", "outlet", length=100, diameter=0.5, n_cells=20)  # 20 FV cells
+model.pressure_boundary("outlet", p=200e3, T=300)
+model.mass_flow_boundary("inlet", mdot=30, T=300)
+
+model.steady_state()
+print(model.pressure("inlet"), model.flow_through("inlet->outlet"))
+```
+
+The paper's Section 5 cases live in `flowcalc.benchmarks` (and the `flowcalc benchmark` CLI).
 
 ## Layout
 
@@ -49,6 +67,8 @@ python examples/pipeline_steady.py
 | `src/flowcalc/components/` | Concrete elements: `Pipe`, `Valve`, `Pump`/compressor, boundaries; non-pipe components added here |
 | `src/flowcalc/fluids/` | Equations of state / fluid property models (`IdealGas`, incompressible) |
 | `src/flowcalc/solver/` | The PCIM solver, time integration, linear solves |
+| `src/flowcalc/model.py` | `FlowModel` — high-level model-building facade |
+| `src/flowcalc/benchmarks.py` | The paper's Section 5 test cases (`flowcalc benchmark`) |
 | `src/flowcalc/io/` | Network (de)serialization |
 | `src/flowcalc/llm/` | Two-way LLM interface (optional) |
 | `examples/` | Runnable cases, including paper benchmarks |

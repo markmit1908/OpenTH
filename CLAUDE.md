@@ -39,6 +39,8 @@ python examples/pipeline_steady.py      # paper §5.1 steady benchmark: PCIM vs 
 python examples/blowdown_transient.py   # paper §5.4 transient blow-down vs quasi-steady
 python examples/heated_pipe.py          # non-isothermal: expansion cooling vs heat addition
 python examples/pump_loop.py            # pump pushing flow uphill + compressor temperature rise
+flowcalc benchmark                      # list the paper's Section 5 test cases
+flowcalc benchmark blowdown             # generate + run one of them
 flowcalc --version                      # console entry point (flowcalc.cli)
 ```
 
@@ -72,6 +74,12 @@ to the paper's equations — read it before touching the numerics):
   `alpha ∈ [0.5,1]` for the transient, `relaxation ∈ (0,1]`, and `solve_energy` to enable
   the non-isothermal energy solve), and `linear.py` (Thomas for series pipelines, scipy
   sparse for networks — the solver currently uses sparse).
+- **`model.py`** — `FlowModel`, the high-level builder/facade most user code and the
+  benchmarks go through: name-based nodes (auto-created), `add_pipe(..., n_cells=N)` that
+  subdivides into finite-volume cells and assigns control volumes, callable (time-varying)
+  pressure boundaries, and `steady_state()` / `run(dt, duration, record=...)`.
+- **`benchmarks.py`** — the paper's Section 5 cases built on `FlowModel` (`build_*`/`run_*`
+  + a `BENCHMARKS` registry); exposed via `flowcalc benchmark`.
 - **`io/`** — declarative dict/JSON (de)serialization; also the LLM exchange payload.
 - **`llm/`** — optional two-way LLM interface. **The core must never import this**; the
   `anthropic` SDK lives behind the `[llm]` extra.

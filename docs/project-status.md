@@ -20,10 +20,12 @@ FlowCalc/
 │   ├── components/   Pipe · Valve · Pump/compressor · pressure/mass-flow boundaries
 │   ├── fluids/       FluidModel ABC · IdealGas (p=sρRT, helium) · Incompressible
 │   ├── solver/       PCIMSolver · SolverConfig (α∈[0.5,1]) · Thomas + sparse
+│   ├── model.py      FlowModel — high-level builder/facade
+│   ├── benchmarks.py paper Section 5 test cases (build_* / run_*, `flowcalc benchmark`)
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
-├── tests/            fluids · network · linear · steady · transient · energy · pump  (26 passing)
+├── tests/            fluids·network·linear·steady·transient·energy·pump·model·benchmarks (35 passing)
 ├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
@@ -44,10 +46,11 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **26 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+- `python -m pytest` → **35 passed** (fluid EOS, topology, Thomas solver, steady — incl.
   high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
-  — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — and
-  the pump/compressor: uphill flow, operating point, compressor temperature rise)
+  — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — the
+  pump/compressor: uphill flow, operating point, temperature rise — and the `FlowModel`
+  facade + the four Section 5 benchmarks)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
@@ -73,6 +76,18 @@ upwind convection on the converged flow field, alternating with the pressure loo
   pressure-driven range to ~Mach 0.74 (the choking limit); flow under-relaxation tames the
   convective feedback; `_converge_flows_only` handles no-interior-unknown networks; the
   energy `h₀→T` step is change-limited to keep the kinetic coupling stable.
+
+## User model & benchmarks — done ✅
+
+`flowcalc.model.FlowModel` is the high-level facade: name-based nodes (auto-created),
+`add_pipe(..., n_cells=N)` that subdivides a pipe into N finite-volume cells and assigns
+each node its control volume, `add_valve`/`add_pump`, callable (time-varying) pressure
+boundaries, and `steady_state()` / `run(dt, duration, record=...)`. It reproduces the
+hand-built pipeline result to ~0%.
+
+`flowcalc.benchmarks` builds and runs the paper's four Section 5 cases on `FlowModel`
+(steady pipeline, valve closure / water hammer, branching-network valve closures,
+pressure-vessel blow-down), exposed via `flowcalc benchmark [name]`.
 
 ## Still the real work
 
