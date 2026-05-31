@@ -45,3 +45,6 @@ class Pipe(Element):
         v_up = mdot / (rho_up * A)
         v_down = mdot / (rho_down * A)
         return (mdot / A) * (v_down - v_up)
+
+    def inertance(self) -> float:
+        return self.length / self.area

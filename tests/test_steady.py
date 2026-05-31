@@ -127,11 +127,3 @@ def test_mass_conserved_at_interior_nodes():
     flows = [e.mdot for e in net.elements.values()]
     # Series: every interior balance => identical mass flow through each pipe.
     assert max(flows) - min(flows) < 1e-6 * max(flows)
-
-
-def test_transient_step_not_implemented_yet():
-    net = Network()
-    node = net.add_node(Node(id="a"))
-    PressureBoundary(node=node, p=1e5, T=300.0).apply()
-    with pytest.raises(NotImplementedError):
-        PCIMSolver(net).step(dt=0.1, t=0.1)

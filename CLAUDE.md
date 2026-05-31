@@ -10,10 +10,13 @@ PDF in `docs/papers/`, distilled in `docs/theory.md`). Python-first prototype; p
 kernels are earmarked for later C/C++ reimplementation (`native/`), and a two-way LLM
 interface is planned (`src/flowcalc/llm/`).
 
-**Project status.** The **steady-state solver is implemented and validated** (matches the
-closed-form isothermal compressible pipe-flow law to ~0% error; see `examples/` and
-`tests/test_steady.py`). The **transient time-marching step is still stubbed** with
-`NotImplementedError` — see "Implementing the solver core" below.
+**Project status.** The **steady-state and transient solvers are implemented and
+validated** (isothermal). Steady matches the closed-form isothermal compressible
+pipe-flow law to ~0% error; the transient marches to the steady solution as its fixed
+point, conserves mass exactly in the storage term, and reproduces water-hammer
+overpressure and the blow-down decay. See `examples/` and `tests/`. **Non-isothermal flow
+(energy-equation coupling) is the main remaining gap** — see "Implementing the solver
+core" below.
 
 ## Commands
 
@@ -30,7 +33,8 @@ python -m pytest --cov=flowcalc         # with coverage
 ruff check . && ruff format .           # lint + format
 mypy                                    # type-check (config in pyproject.toml)
 
-python examples/pipeline_steady.py      # paper §5.1 benchmark: PCIM vs analytical
+python examples/pipeline_steady.py      # paper §5.1 steady benchmark: PCIM vs analytical
+python examples/blowdown_transient.py   # paper §5.4 transient blow-down vs quasi-steady
 flowcalc --version                      # console entry point (flowcalc.cli)
 ```
 
@@ -77,21 +81,29 @@ high-Mach pressure ratio correct — see `docs/theory.md`.)
 
 ## Implementing the solver core
 
-`PCIMSolver.steady_state` is implemented (segregated SIMPLE loop, the dt→∞ limit of
-Section 4) and validated. The remaining stubbed numerics (search `NotImplementedError` /
-`TODO(core)`) are:
+`PCIMSolver.steady_state` and `PCIMSolver.step` are both implemented (segregated SIMPLE;
+steady is the dt→∞ limit of Section 4, transient adds the storage/inertia terms and the
+`alpha` time-weighting) and validated — **but only for isothermal flow**: temperature is
+held fixed and the energy equation is not yet solved. The remaining work:
 
-- `solver/pcim.py::PCIMSolver.step` — the **transient** time step: add the storage terms
-  (`V/Δt`, previous-time-level `o` values) to continuity/momentum and couple the **energy
-  equation** (eqs. 13-34). The steady solve assumes a fixed (isothermal) temperature field.
-- Non-pipe component closures (`Valve.resistance` exists; pump/compressor/turbine/orifice/
-  heat-exchanger to come).
+- **Energy equation / non-isothermal flow** (eqs. 29-34): solve for total enthalpy `h₀`
+  (upwinded, tridiagonal/sparse) alternately with the pressure-correction loop, and update
+  temperatures. This unlocks the paper's adiabatic and heat-transfer cases (Fig. 3, 6, 7).
+- Non-pipe component closures (`Valve.resistance`/`Pipe` exist; pump/compressor/turbine/
+  orifice/heat-exchanger to come), each via `resistance`/`convective_dp`/`inertance`.
+
+Implementation notes worth preserving:
+- The flow update is **under-relaxed** (`SolverConfig.relaxation`): the convective term
+  couples flow to itself and diverges at high Mach in pressure-driven steady problems.
+- A network with **no interior pressure unknowns** (e.g. one element between two pressure
+  boundaries — the blow-down case) is handled by `_converge_flows_only`: momentum alone
+  fixes the flows.
+- The transient is **mass-conservative by construction** (the storage term equals the
+  θ-weighted flux integral); `tests/test_transient.py` checks this to ~1e-9.
 
 Transcribe equations directly from `docs/papers/` (do **not** rely on memory or OCR), and
-**validate against the paper's benchmarks before trusting results**. Steady is checked
-against the closed-form isothermal pipe law (`tests/test_steady.py`); for the transient,
-target the valve-closure and blow-down cases (Fig. 4-10). Add each validated benchmark as a
-test.
+**validate against the paper's benchmarks before trusting results**. Add each validated
+benchmark as a test (see `tests/test_steady.py`, `tests/test_transient.py`).
 
 ## Conventions
 

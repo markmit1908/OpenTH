@@ -61,6 +61,19 @@ class Element(ABC):
         """
         return 0.0
 
+    def inertance(self) -> float:
+        """Mass-flow inertance dx / A [1/m] for the transient momentum term.
+
+        The fluid inertia term in the momentum equation (paper eq. 14) is
+        ``(dx / A) d(mdot)/dt``; this returns its coefficient. Zero by default for
+        components whose stored momentum is negligible (e.g. valves); :class:`Pipe`
+        overrides it. Inertia is what gives rise to water-hammer in fast transients.
+        """
+        return 0.0
+
+    def set_time(self, t: float) -> None:  # noqa: B027  (intentional optional no-op hook)
+        """Hook for time-dependent elements (e.g. a closing valve). No-op by default."""
+
     def _require_fluid(self) -> FluidModel:
         if self.fluid is None:
             raise ValueError(f"element {self.id!r} has no fluid assigned")

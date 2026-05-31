@@ -42,32 +42,38 @@ as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **16 passed** (fluid EOS, topology, Thomas solver, + steady-state
-  validation: incompressible series/parallel, compressible isothermal pipe, mass balance)
+- `python -m pytest` → **18 passed** (fluid EOS, topology, Thomas solver, steady-state
+  validation, and transient validation: march-to-steady, mass conservation, water-hammer)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
-- `examples/pipeline_steady.py` reproduces the analytical isothermal compressible pipe-flow
-  pressure ratio to **0.00% error up to Mach 0.5**
+- `examples/pipeline_steady.py` reproduces the analytical isothermal pressure ratio to
+  **0.00% error up to Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%
 - `flowcalc --version` works
 
-## Steady-state core — done ✅
+## Steady + transient core — done ✅ (isothermal)
 
-`PCIMSolver.steady_state` implements the segregated SIMPLE iteration (the dt→∞ limit of the
-paper's algorithm) with Picard density updates, assuming a fixed (isothermal) temperature
-field. Per-face momentum is `Δp = K·mdot·|mdot| + C` (friction `Element.resistance` +
-convective `Element.convective_dp`); continuity assembles the pressure-correction system,
-solved sparsely. Validated against the closed-form `p1²−p2² = G²RT(fL/D + 2ln(p1/p2))`.
+Both `PCIMSolver.steady_state` (dt→∞ limit) and `PCIMSolver.step` (transient) are
+segregated SIMPLE iterations with Picard density updates and a fixed temperature field.
+Per-face momentum is `Δp = K·mdot·|mdot| + C` (+ inertia `(Δx/A) dṁ/dt` in the transient);
+continuity assembles the pressure-correction system (with a `V·∂ρ/∂p/Δt` storage diagonal
+in the transient), solved sparsely.
+
+- Steady validated vs. `p1²−p2² = G²RT(fL/D + 2ln(p1/p2))`.
+- Transient validated: marches to the steady fixed point (~1e-9), conserves mass in the
+  θ-weighted sense (~1e-9), produces water-hammer overpressure, and reproduces the
+  blow-down mass-flow decay.
+- Robustness: flow under-relaxation (`SolverConfig.relaxation`) tames the high-Mach
+  convective feedback; `_converge_flows_only` handles networks with no interior pressure
+  unknowns (single element between two pressure boundaries).
 
 ## Still the real work
 
-Stubbed with `NotImplementedError` + `TODO(core)`:
-
-- `PCIMSolver.step` — the **transient** time step (storage terms `V/Δt`, previous-time
-  level) + **energy equation** coupling, eqs. (13)–(34).
+- **Energy equation / non-isothermal flow** (eqs. 29–34) — solve for total enthalpy `h₀`
+  alternately with the pressure loop and update temperatures. Unlocks Fig. 3, 6, 7.
 - Non-pipe component closures beyond `Valve` (pump/compressor/turbine/orifice/heat-exchanger).
 
 Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) stress transcribing
-equations directly from the PDF and validating against the paper's benchmarks (Figs. 4–10
-for the transient) before trusting output.
+equations directly from the PDF and validating against the paper's benchmarks before
+trusting output.
 
 ## Environment note
 
@@ -81,6 +87,6 @@ pip install -e ".[dev,llm]"
 
 ## Suggested next step
 
-Implement the **transient** time step (`PCIMSolver.step`): add the finite-volume storage
-terms and the energy-equation coupling, and validate against the sudden-valve-closure and
-pressure-vessel blow-down cases (Figs. 4–10).
+Couple the **energy equation** (non-isothermal flow): solve total enthalpy `h₀` alternately
+with the pressure-correction loop and update temperatures, enabling the adiabatic and
+heat-transfer cases (Figs. 3, 6, 7).

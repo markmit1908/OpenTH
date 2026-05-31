@@ -1,28 +1,31 @@
 """PCIM: the implicit Pressure-Correction solver (Greyvenstein 2002).
 
-This module implements the **steady-state** core. The transient time-marching step is
-still pending (see :meth:`PCIMSolver.step`); the steady solve below is also the natural
-initial condition for a future transient run, exactly as in the paper (Section 5.1).
+Implements both the **steady-state** solve and the **transient** time step. Both share the
+same segregated (SIMPLE) inner loop; the transient adds the finite-volume storage/inertia
+terms and the paper's time-integration weighing factor ``alpha`` (Section 3).
 
-Steady-state algorithm (segregated / SIMPLE, the dt -> infinity limit of Section 4):
+Per face, the momentum balance at the new time level is (paper eq. 14, in mass-flow form):
 
-    repeat until the mass imbalance is below tolerance:
-      1. Evaluate face densities from the current node pressures/temperatures (eq. 12).
-      2. For each face, satisfy the momentum balance for the current pressures:
-             p_up - p_down = K * mdot|mdot| + C
-         -> mdot* = sign(dp - C) * sqrt(|dp - C| / K)
-         where K is the friction resistance and C the convective term (Element).
-      3. Linearise: mdot' = d * (p'_up - p'_down), d = 1 / (2 K |mdot*|)  (eqs. 20-22).
-      4. Assemble the pressure-correction equation from the nodal mass balance
-         (eqs. 24-28, transient terms dropped):
-             (sum_e d_e) p'_i  -  sum_nb d_e p'_nb  =  -O_i
-         where O_i is the net mass outflow from node i (the continuity residual).
-      5. Solve the linear system for p' (sparse; Thomas for a pure series chain).
-      6. Update pressures p_i += relaxation * p'_i and the face flows.
+    I (mdot - mdot_o)/dt + alpha*[ K mdot|mdot| + C - (p_up - p_down) ]
+                         + (1-alpha)*[ K mdot|mdot| + C - (p_up - p_down) ]_o  = 0
 
-Densities are refreshed each iteration (Picard), so at convergence the equation of state,
-momentum and continuity are all satisfied simultaneously. The steady solve assumes a
-fixed temperature field (isothermal / energy equation not yet coupled here).
+where I = dx/A is the inertance, K the friction resistance, C the convective term. Solving
+this for mdot given the current pressures, and substituting into the nodal continuity
+balance (eq. 13)
+
+    V (rho - rho_o)/dt + alpha*O + (1-alpha)*O_o = 0,   O = net mass outflow,
+
+gives the pressure-correction equation (eqs. 24-28). Its coefficients are
+
+    s   = alpha / (I/dt + 2 alpha K |mdot|)         (flow sensitivity to dp, eq. 20)
+    cP  = V (drho/dp)/dt + alpha * sum_e s_e         (storage + link diagonal)
+    cnb = alpha * s_e
+    b   = -(continuity residual)
+
+The steady solve is the dt -> infinity limit (storage and inertia drop out, s -> 1/(2K|m|)).
+Densities are refreshed each iteration (Picard) so the equation of state, momentum and
+continuity are all satisfied at convergence. Temperature is held fixed (isothermal); the
+energy equation (eqs. 29-34) is not yet coupled.
 """
 
 from __future__ import annotations
@@ -32,6 +35,8 @@ import math
 import numpy as np
 from scipy.sparse import csr_matrix
 
+from ..network.element import Element
+from ..network.node import Node
 from .base import Solver, StepResult
 from .linear import sparse_solve
 
@@ -39,9 +44,13 @@ from .linear import sparse_solve
 class PCIMSolver(Solver):
     """Segregated implicit pressure-correction solver."""
 
-    # Relative floor on |mdot| when forming the linearised conductance, to avoid a
-    # singular system on the first iterations when flows are near zero.
-    _MDOT_FLOOR = 1e-9
+    # Floor on |mdot| (relative to the characteristic mass flow) when forming the
+    # linearised conductance d = 1/(2K|mdot|). Quadratic resistance makes d blow up as
+    # mdot -> 0, which makes near-zero-flow branches ill-conditioned; this keeps the system
+    # well-conditioned without affecting the converged result (where flows are finite).
+    _MDOT_FLOOR = 1e-3
+
+    # ---- steady state --------------------------------------------------------------
 
     def steady_state(self) -> StepResult:
         net = self.network
@@ -51,17 +60,18 @@ class PCIMSolver(Solver):
         unknowns = net.solve_order()  # nodes whose pressure is solved (not Dirichlet)
         index = {node.id: i for i, node in enumerate(unknowns)}
         n = len(unknowns)
-        if n == 0:
-            return StepResult(time=0.0, iterations=0, residual=0.0, converged=True)
-
         cfg = self.config
+        if n == 0:
+            # No pressure unknowns (e.g. one element between two pressure boundaries):
+            # the flows are fixed by the boundary pressures; just converge them.
+            return self._converge_flows_only(self._update_flows_steady, time=0.0)
+
         residual = math.inf
         scale = self._mass_scale()
 
         for it in range(1, cfg.max_outer_iterations + 1):
-            self._update_flows()
+            self._update_flows_steady()
 
-            # Assemble the pressure-correction system: A p' = b.
             rows: list[int] = []
             cols: list[int] = []
             data: list[float] = []
@@ -70,13 +80,12 @@ class PCIMSolver(Solver):
             for node in unknowns:
                 i = index[node.id]
                 diag = 0.0
-                # Continuity residual O_i = net mass outflow - imposed source.
                 outflow = -node.mass_source
                 for e in net.elements_at(node):
-                    d = self._conductance(e)
+                    d = self._conductance_steady(e)
                     diag += d
                     other = e.downstream if e.upstream is node else e.upstream
-                    sign = 1.0 if e.upstream is node else -1.0  # +mdot leaves an upstream node
+                    sign = 1.0 if e.upstream is node else -1.0
                     outflow += sign * e.mdot
                     if not other.is_boundary:
                         rows.append(i)
@@ -93,22 +102,209 @@ class PCIMSolver(Solver):
 
             a = csr_matrix((data, (rows, cols)), shape=(n, n))
             p_corr = sparse_solve(a, b)
-
             for node in unknowns:
                 node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
 
         return StepResult(time=0.0, iterations=cfg.max_outer_iterations,
                           residual=residual, converged=False)
 
-    def step(self, dt: float, t: float) -> StepResult:
-        self.network.validate()
-        # TODO(core): transient time step -- add the storage terms (V/dt, previous-time
-        # level) to continuity/momentum and couple the energy equation (eqs. 13-34).
-        raise NotImplementedError(
-            "PCIMSolver.step: transient time-marching not implemented yet; steady_state() works."
-        )
+    # ---- transient time step -------------------------------------------------------
 
-    # ---- helpers -------------------------------------------------------------------
+    def step(self, dt: float, t: float) -> StepResult:
+        net = self.network
+        net.validate()
+        self._initialise_state()
+        for e in net.elements.values():
+            e.set_time(t)  # update time-dependent elements (e.g. a closing valve)
+
+        cfg = self.config
+        alpha = cfg.alpha
+
+        # Snapshot previous-time-level (superscript o) quantities from the committed state.
+        rho_o = {node.id: self._density(node) for node in net.nodes.values()}
+        mdot_o = {e.id: e.mdot for e in net.elements.values()}
+        resid_o = {e.id: self._old_momentum_residual(e, rho_o, mdot_o, alpha)
+                   for e in net.elements.values()}
+        outflow_o = {node.id: self._net_outflow(node, mdot_o) for node in net.nodes.values()}
+
+        unknowns = net.solve_order()
+        index = {node.id: i for i, node in enumerate(unknowns)}
+        n = len(unknowns)
+        if n == 0:
+            return self._converge_flows_only(
+                lambda: self._update_flows_transient(dt, alpha, mdot_o, resid_o), time=t)
+
+        residual = math.inf
+        scale = self._mass_scale()
+
+        for it in range(1, cfg.max_outer_iterations + 1):
+            self._update_flows_transient(dt, alpha, mdot_o, resid_o)
+
+            rows: list[int] = []
+            cols: list[int] = []
+            data: list[float] = []
+            b = np.zeros(n)
+
+            for node in unknowns:
+                i = index[node.id]
+                # Storage diagonal: V (drho/dp) / dt  (compressibility coupling, eq. 17).
+                diag = node.volume * self._drho_dp(node) / dt
+                outflow = self._net_outflow(node)
+                for e in net.elements_at(node):
+                    s = self._sensitivity_transient(e, dt, alpha)
+                    diag += alpha * s
+                    other = e.downstream if e.upstream is node else e.upstream
+                    if not other.is_boundary:
+                        rows.append(i)
+                        cols.append(index[other.id])
+                        data.append(-alpha * s)
+                rows.append(i)
+                cols.append(i)
+                data.append(diag)
+                # Transient continuity residual G_i (eq. 13).
+                storage = node.volume * (self._density(node) - rho_o[node.id]) / dt
+                b[i] = -(storage + alpha * outflow + (1.0 - alpha) * outflow_o[node.id])
+
+            residual = float(np.max(np.abs(b))) / scale
+            if residual < cfg.tol:
+                return StepResult(time=t, iterations=it, residual=residual, converged=True)
+
+            a = csr_matrix((data, (rows, cols)), shape=(n, n))
+            p_corr = sparse_solve(a, b)
+            for node in unknowns:
+                node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
+
+        return StepResult(time=t, iterations=cfg.max_outer_iterations,
+                          residual=residual, converged=False)
+
+    def _converge_flows_only(self, update_flows, time: float) -> StepResult:
+        """Iterate the face-flow update to convergence when there are no pressure unknowns.
+
+        Applies when every node has a fixed pressure (e.g. a single element between two
+        pressure boundaries): momentum alone determines the flows, so we iterate the
+        (under-relaxed, convective-lagged) flow update until it stops changing.
+        """
+        cfg = self.config
+        change = math.inf
+        for it in range(1, cfg.max_outer_iterations + 1):
+            previous = {e.id: e.mdot for e in self.network.elements.values()}
+            update_flows()
+            delta = max((abs(e.mdot - previous[e.id]) for e in self.network.elements.values()),
+                        default=0.0)
+            change = delta / self._mass_scale()  # scale reflects the now-updated flows
+            if change < cfg.tol:
+                return StepResult(time=time, iterations=it, residual=change, converged=True)
+        return StepResult(time=time, iterations=cfg.max_outer_iterations,
+                          residual=change, converged=False)
+
+    # ---- flow updates --------------------------------------------------------------
+
+    def _update_flows_steady(self) -> None:
+        """Recompute each face's mass flow from the current pressures (steady momentum).
+
+        The flow is under-relaxed: the convective term couples flow to itself, which is a
+        positive feedback that can diverge at high Mach in pressure-driven problems.
+        """
+        relax = self.config.relaxation
+        for e in self.network.elements.values():
+            rho_up = e.density_at(e.upstream)
+            rho_down = e.density_at(e.downstream)
+            k = e.resistance(0.5 * (rho_up + rho_down))
+            if not math.isfinite(k) or k <= 0.0:
+                e.mdot = 0.0
+                continue
+            conv = e.convective_dp(rho_up, rho_down, e.mdot)
+            drive = (e.upstream.state.p0 - e.downstream.state.p0) - conv
+            target = math.copysign(math.sqrt(abs(drive) / k), drive)
+            e.mdot += relax * (target - e.mdot)
+
+    def _update_flows_transient(self, dt: float, alpha: float, mdot_o: dict[str, float],
+                                resid_o: dict[str, float]) -> None:
+        """Solve each face's transient momentum balance for the mass flow."""
+        for e in self.network.elements.values():
+            rho_up = e.density_at(e.upstream)
+            rho_down = e.density_at(e.downstream)
+            k = e.resistance(0.5 * (rho_up + rho_down))
+            if not math.isfinite(k) or k <= 0.0:
+                e.mdot = 0.0
+                continue
+            a = e.inertance() / dt          # inertia coefficient
+            quad = alpha * k                # quadratic friction coefficient
+            conv = e.convective_dp(rho_up, rho_down, e.mdot)
+            dp = e.upstream.state.p0 - e.downstream.state.p0
+            # a*mdot + quad*mdot|mdot| = a*mdot_o + alpha*dp - alpha*conv - resid_o
+            rhs = a * mdot_o[e.id] + alpha * dp - alpha * conv - resid_o[e.id]
+            e.mdot = self._solve_momentum(a, quad, rhs)
+
+    # ---- coefficient helpers -------------------------------------------------------
+
+    def _conductance_steady(self, e: Element) -> float:
+        """Linearised friction conductance d = 1 / (2 K |mdot|) for face ``e`` (eq. 20)."""
+        k = e.resistance(e.face_density())
+        if not math.isfinite(k) or k <= 0.0:
+            return 0.0
+        return 1.0 / (2.0 * k * max(abs(e.mdot), self._MDOT_FLOOR * self._mass_scale()))
+
+    def _sensitivity_transient(self, e: Element, dt: float, alpha: float) -> float:
+        """Flow sensitivity s = alpha / (I/dt + 2 alpha K |mdot|) for face ``e``."""
+        k = e.resistance(e.face_density())
+        if not math.isfinite(k) or k <= 0.0:
+            return 0.0
+        a = e.inertance() / dt
+        floor = self._MDOT_FLOOR * self._mass_scale()
+        return alpha / (a + 2.0 * alpha * k * max(abs(e.mdot), floor))
+
+    def _old_momentum_residual(self, e: Element, rho_o: dict[str, float],
+                               mdot_o: dict[str, float], alpha: float) -> float:
+        """The (1-alpha)-weighted old-time momentum term carried into this step."""
+        rho_up = rho_o[e.upstream.id]
+        rho_down = rho_o[e.downstream.id]
+        k = e.resistance(0.5 * (rho_up + rho_down))
+        m_o = mdot_o[e.id]
+        if not math.isfinite(k) or k <= 0.0:
+            friction = 0.0
+            conv = 0.0
+        else:
+            friction = k * m_o * abs(m_o)
+            conv = e.convective_dp(rho_up, rho_down, m_o)
+        dp_o = e.upstream.state.p0 - e.downstream.state.p0
+        return (1.0 - alpha) * (friction + conv - dp_o)
+
+    @staticmethod
+    def _solve_momentum(a: float, b: float, rhs: float) -> float:
+        """Solve the monotonic equation ``a*m + b*m*|m| = rhs`` for m (a, b >= 0)."""
+        if b <= 0.0:
+            return rhs / a if a > 0.0 else 0.0
+        if a <= 0.0:
+            return math.copysign(math.sqrt(abs(rhs) / b), rhs)
+        mag = (-a + math.sqrt(a * a + 4.0 * b * abs(rhs))) / (2.0 * b)
+        return math.copysign(mag, rhs)
+
+    # ---- state helpers -------------------------------------------------------------
+
+    def _net_outflow(self, node: Node, mdot: dict[str, float] | None = None) -> float:
+        """Net mass outflow O_i from a node: signed sum of face flows minus its source.
+
+        Uses ``mdot[e.id]`` when a map is given (e.g. the previous-time-level flows),
+        otherwise the elements' current ``mdot``.
+        """
+        out = -node.mass_source
+        for e in self.network.elements_at(node):
+            flow = e.mdot if mdot is None else mdot[e.id]
+            out += (1.0 if e.upstream is node else -1.0) * flow
+        return out
+
+    def _node_fluid(self, node: Node):
+        for e in self.network.elements_at(node):
+            if e.fluid is not None:
+                return e.fluid
+        raise ValueError(f"node {node.id!r} has no adjacent element with a fluid")
+
+    def _density(self, node: Node) -> float:
+        return self._node_fluid(node).density(node.state.p0, node.state.T)
+
+    def _drho_dp(self, node: Node) -> float:
+        return self._node_fluid(node).drho_dp(node.state.p0, node.state.T)
 
     def _initialise_state(self) -> None:
         """Fill in any unset pressures/temperatures from the fixed boundaries."""
@@ -116,9 +312,9 @@ class PCIMSolver(Solver):
         fixed_p = [n.state.p0 for n in nodes if n.is_boundary and n.state.p0 > 0.0]
         temps = [n.state.T for n in nodes if n.state.T > 0.0]
         if not fixed_p:
-            raise ValueError("steady_state needs at least one PressureBoundary")
+            raise ValueError("solver needs at least one PressureBoundary")
         if not temps:
-            raise ValueError("steady_state needs a temperature on at least one node")
+            raise ValueError("solver needs a temperature on at least one node")
         p_guess = sum(fixed_p) / len(fixed_p)
         t_guess = sum(temps) / len(temps)
         for node in nodes:
@@ -126,29 +322,6 @@ class PCIMSolver(Solver):
                 node.state.p0 = p_guess
             if node.state.T <= 0.0:
                 node.state.T = t_guess  # isothermal fill
-
-    def _update_flows(self) -> None:
-        """Recompute each face's mass flow from the current pressures (step 2 above)."""
-        for e in self.network.elements.values():
-            rho_up = e.density_at(e.upstream)
-            rho_down = e.density_at(e.downstream)
-            rho_face = 0.5 * (rho_up + rho_down)
-            k = e.resistance(rho_face)
-            if not math.isfinite(k) or k <= 0.0:  # e.g. a shut valve
-                e.mdot = 0.0
-                continue
-            conv = e.convective_dp(rho_up, rho_down, e.mdot)
-            drive = (e.upstream.state.p0 - e.downstream.state.p0) - conv
-            e.mdot = math.copysign(math.sqrt(abs(drive) / k), drive)
-
-    def _conductance(self, e) -> float:
-        """Linearised friction conductance d = 1 / (2 K |mdot|) for face ``e`` (eq. 20)."""
-        rho_face = e.face_density()
-        k = e.resistance(rho_face)
-        if not math.isfinite(k) or k <= 0.0:
-            return 0.0
-        mdot_floor = self._MDOT_FLOOR * self._mass_scale()
-        return 1.0 / (2.0 * k * max(abs(e.mdot), mdot_floor))
 
     def _mass_scale(self) -> float:
         """A representative mass-flow magnitude for relative tolerances / flooring."""

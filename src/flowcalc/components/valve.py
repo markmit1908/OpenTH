@@ -33,6 +33,9 @@ class Valve(Element):
     opening: Callable[[float], float] = lambda t: 1.0
     _t: float = 0.0  # time at which to evaluate the opening (set by the solver)
 
+    def set_time(self, t: float) -> None:
+        self._t = t
+
     def resistance(self, rho_face: float) -> float:
         frac = self.opening(self._t)
         if frac <= 0.0:

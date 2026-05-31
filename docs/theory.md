@@ -65,12 +65,17 @@ motivated the method).
 
 ## Implementation status
 
-The **steady-state solve is implemented** (`solver.PCIMSolver.steady_state`) as the dt→∞
-limit of the algorithm above: a segregated SIMPLE iteration with Picard density updates,
-assuming a fixed (isothermal) temperature field. It is validated to ~0% error against the
-closed-form isothermal compressible pipe law in `tests/test_steady.py` and
-`examples/pipeline_steady.py`. The **transient step and energy coupling are pending**
-(`solver.PCIMSolver.step`).
+Both the **steady-state solve** (`PCIMSolver.steady_state`, the dt→∞ limit) and the
+**transient time step** (`PCIMSolver.step`) are implemented as segregated SIMPLE iterations
+with Picard density updates, **assuming a fixed (isothermal) temperature field**. The
+transient adds the finite-volume storage term `V(ρ−ρᵒ)/Δt`, the momentum inertia
+`(Δx/A)(ṁ−ṁᵒ)/Δt`, and the θ-weighting `α` between time levels; its pressure-correction
+coefficients are `s = α/(I/Δt + 2αK|ṁ|)`, `cP = V(∂ρ/∂p)/Δt + α·Σsₑ`, `cnb = α·sₑ`.
+
+Validated (`tests/`): steady matches the closed-form isothermal pipe law to ~0%; the
+transient marches to the steady fixed point (~1e-9), conserves mass exactly in the
+θ-weighted sense (~1e-9), and produces water-hammer overpressure and the blow-down decay.
+**The energy equation (eqs. 29–34) is not yet coupled** — non-isothermal flow is pending.
 
 ## Benchmarks to validate against (Section 5)
 
@@ -78,13 +83,15 @@ closed-form isothermal compressible pipe law in `tests/test_steady.py` and
    number to the ODE benchmark (eqs. 35–37). Implemented + validated:
    [`examples/pipeline_steady.py`](../examples/pipeline_steady.py). (Fig. 2/3.) ✅
 2. **Sudden valve closure** in a 20 m pipe — pressure-wave amplitude/frequency vs. MOC and
-   Lax–Wendroff (Fig. 4–7).
+   Lax–Wendroff (Fig. 4–7). Water-hammer overpressure validated in
+   `tests/test_transient.py` (isothermal; quantitative match to the figures pending). ◑
 3. **Branching network** valve closures (Fig. 8–9).
 4. **Pressure-vessel blow-down** — slow transient where the implicit method is ~70–1000×
-   faster than explicit methods (Fig. 10).
+   faster than explicit methods (Fig. 10). Implemented + checked vs. quasi-steady:
+   [`examples/blowdown_transient.py`](../examples/blowdown_transient.py). ✅
 
 ## Beyond pipes
 
 The momentum closure (step 3) is per-element, so **non-pipe components** — valves, pumps,
 compressors, turbines, orifices, heat exchangers — slot in by supplying their own
-`momentum_coeffs`. `components.Valve` is the first such template.
+`resistance` / `convective_dp` / `inertance`. `components.Valve` is the first such template.

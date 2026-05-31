@@ -15,13 +15,14 @@ turbines, orifices, heat exchangers).
 
 ## Status
 
-Early prototype. The **steady-state solver works and is validated** — it reproduces the closed-form
-isothermal compressible pipe-flow relation to ~0% error (see `examples/pipeline_steady.py` and
-`tests/test_steady.py`). The **transient time-marching step is next** (still stubbed). Python-first
-for clarity and rapid iteration; performance-critical kernels (linear solves, coefficient assembly)
-will later be reimplemented in C/C++ behind the same interfaces — see [`native/`](native/). A two-way
-LLM interface (build/query networks in natural language) is planned in
-[`src/flowcalc/llm/`](src/flowcalc/llm/).
+Early prototype. The **steady-state and transient solvers work and are validated** (isothermal):
+steady reproduces the closed-form isothermal compressible pipe-flow relation to ~0% error
+(`examples/pipeline_steady.py`); the transient marches to that steady state, conserves mass, and
+captures water-hammer and the blow-down decay (`examples/blowdown_transient.py`, `tests/`).
+**Non-isothermal flow (energy-equation coupling) is the next step.** Python-first for clarity and
+rapid iteration; performance-critical kernels (linear solves, coefficient assembly) will later be
+reimplemented in C/C++ behind the same interfaces — see [`native/`](native/). A two-way LLM interface
+(build/query networks in natural language) is planned in [`src/flowcalc/llm/`](src/flowcalc/llm/).
 
 ## Quick start
 

@@ -35,6 +35,16 @@ class FluidModel(ABC):
     def sonic_velocity(self, p: float, T: float) -> float:
         """Speed of sound a(p, T). Used to evaluate Mach number and total quantities."""
 
+    def drho_dp(self, p: float, T: float) -> float:
+        """Isothermal compressibility (d rho / d p)_T [s^2/m^2].
+
+        This is the coefficient that couples a pressure correction to a density change in
+        the transient continuity storage term (paper eq. 17). Default is a central finite
+        difference; closed-form overrides are preferred where available.
+        """
+        dp = max(1.0, 1e-6 * abs(p))
+        return (self.density(p + dp, T) - self.density(p - dp, T)) / (2.0 * dp)
+
     def total_enthalpy(self, T: float, velocity: float) -> float:
         """Total (stagnation) enthalpy h0 = h + V^2 / 2  (see paper, after eq. 3)."""
         return self.enthalpy(T) + 0.5 * velocity * velocity

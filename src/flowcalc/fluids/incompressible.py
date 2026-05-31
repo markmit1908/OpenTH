@@ -31,6 +31,12 @@ class Incompressible(FluidModel):
         # a = sqrt(K / rho), the liquid's acoustic (water-hammer) speed.
         return math.sqrt(self.bulk_modulus / self.rho)
 
+    def drho_dp(self, p: float, T: float) -> float:
+        # Constant density: a pressure change drives no density change in the storage term.
+        # (A finite bulk modulus could be modelled as rho / bulk_modulus if liquid
+        # compressibility / water-hammer storage is needed; left at 0 for now.)
+        return 0.0
+
 
 def water() -> Incompressible:
     return Incompressible(name="water", rho=998.0, cp=4182.0, bulk_modulus=2.2e9)

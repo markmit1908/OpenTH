@@ -54,6 +54,10 @@ class IdealGas(FluidModel):
     def sonic_velocity(self, p: float, T: float) -> float:
         return math.sqrt(self.gamma * self.s * self.R * T)
 
+    def drho_dp(self, p: float, T: float) -> float:
+        # rho = p / (s R T)  ->  d rho / d p = 1 / (s R T)
+        return 1.0 / (self.s * self.R * T)
+
 
 def helium() -> IdealGas:
     """Helium, the working fluid in the paper's benchmark cases."""
