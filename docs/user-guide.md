@@ -199,6 +199,47 @@ coupling is future work), and a closed loop needs one `pressure_boundary` as its
 > [vision statement](vision-statement.md); `th.Model` (this section's name-based builder) and
 > `th.Circuit` share the same solver and can be used interchangeably for the same physics.
 
+### Saving & loading models (JSON)
+
+Models don't have to live in Python — save a `FlowModel` to a `.json` file and reload it:
+
+```python
+model.save("loop.json")              # write the model to JSON
+again = th.Model.load("loop.json")   # rebuild it (solves identically)
+# or work with the dict directly: model.to_dict() / th.Model.from_dict(d)
+```
+
+The file records the **high-level build steps** (pipes with `n_cells`, boundaries, etc.) and
+the fluid — not the expanded finite-volume mesh — so it's compact and hand-editable:
+
+```json
+{
+  "schema": 1,
+  "fluid": {"kind": "helium"},
+  "default_temperature": 300.0,
+  "build": [
+    {"op": "add_pipe", "upstream": "inlet", "downstream": "outlet",
+     "length": 100.0, "diameter": 0.5, "n_cells": 20, "name": "pipe"},
+    {"op": "pressure_boundary", "node": "outlet", "p": 200000.0, "T": 300.0},
+    {"op": "mass_flow_boundary", "node": "inlet", "mdot": 30.0, "T": 300.0}
+  ]
+}
+```
+
+For node properties not set by `add_*` — a vessel volume, an elevation, a transient initial
+state — use the recorded setters so they serialize: `set_volume`, `set_elevation`,
+`set_initial(p=, T=)`. Built-in fluids may be written as `{"kind": "helium"|"air"|"water"}`;
+custom fluids serialize their parameters (`ideal_gas` / `incompressible`). Callable
+(time-varying) boundaries and valve schedules can't be written to JSON — saving a model that
+has one raises a clear error.
+
+Solve a saved model straight from the command line:
+
+```bash
+openth run loop.json            # load + steady solve, print node pressures & flows
+openth run loop.json --energy   # also solve the energy equation (temperatures)
+```
+
 ## 4. Boundary conditions
 
 A network needs at least one `pressure_boundary` (otherwise the pressure level is undefined).

@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "fluid": {"kind": "helium"},
+  "default_temperature": 300.0,
+  "build": [
+    {"op": "add_pipe", "upstream": "inlet", "downstream": "outlet",
+     "length": 100.0, "diameter": 0.5, "friction_factor": 0.02,
+     "n_cells": 20, "delta_elevation": 0.0, "name": "pipe"},
+    {"op": "pressure_boundary", "node": "outlet", "p": 200000.0, "T": 300.0},
+    {"op": "mass_flow_boundary", "node": "inlet", "mdot": 30.0, "T": 300.0}
+  ]
+}

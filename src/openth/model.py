@@ -45,6 +45,11 @@ class FlowModel:
     network: Network = field(default_factory=Network)
     _time_pressures: dict[str, Callable[[float], float]] = field(default_factory=dict, init=False)
     _solver: PCIMSolver | None = field(default=None, init=False)
+    # Recorded high-level build operations (op name + kwargs), for JSON (de)serialization.
+    _directives: list[tuple[str, dict[str, object]]] = field(default_factory=list, init=False)
+
+    def _record(self, op: str, **kwargs: object) -> None:
+        self._directives.append((op, kwargs))
 
     # ---- topology ------------------------------------------------------------------
 
@@ -69,6 +74,9 @@ class FlowModel:
         if n_cells < 1:
             raise ValueError("n_cells must be >= 1")
         name = name or f"{upstream}->{downstream}"
+        self._record("add_pipe", upstream=upstream, downstream=downstream, length=length,
+                     diameter=diameter, friction_factor=friction_factor, n_cells=n_cells,
+                     delta_elevation=delta_elevation, name=name)
         area = 0.25 * math.pi * diameter * diameter
         dx = length / n_cells
         half_cell = 0.5 * dx * area  # each segment gives half its cell volume to each end node
@@ -96,6 +104,8 @@ class FlowModel:
                   opening: Callable[[float], float] | None = None,
                   name: str | None = None) -> FlowModel:
         name = name or f"valve_{upstream}->{downstream}"
+        self._record("add_valve", upstream=upstream, downstream=downstream, k_open=k_open,
+                     opening=opening, name=name)
         valve = Valve(id=name, upstream=self.node(upstream), downstream=self.node(downstream),
                       fluid=self.fluid, k_open=k_open)
         if opening is not None:
@@ -106,6 +116,8 @@ class FlowModel:
     def add_pump(self, upstream: str, downstream: str, *, head_shutoff: float, curve: float,
                  efficiency: float = 1.0, name: str | None = None) -> FlowModel:
         name = name or f"pump_{upstream}->{downstream}"
+        self._record("add_pump", upstream=upstream, downstream=downstream,
+                     head_shutoff=head_shutoff, curve=curve, efficiency=efficiency, name=name)
         self.network.add_element(Pump(id=name, upstream=self.node(upstream),
                                       downstream=self.node(downstream), fluid=self.fluid,
                                       head_shutoff=head_shutoff, curve=curve,
@@ -121,6 +133,7 @@ class FlowModel:
         sides of a recuperator/heat exchanger).
         """
         name = name or f"hx_{hot}->{cold}"
+        self._record("add_heat_exchanger", hot=hot, cold=cold, UA=UA, name=name)
         self.network.add_heat_exchanger(
             HeatExchanger(id=name, hot=self.node(hot), cold=self.node(cold), UA=UA))
         return self
@@ -130,6 +143,7 @@ class FlowModel:
     def pressure_boundary(self, node: str, *, p: float | Callable[[float], float],
                           T: float | None = None) -> FlowModel:
         """Fix a node's pressure (and temperature). ``p`` may be a callable of time."""
+        self._record("pressure_boundary", node=node, p=p, T=T)
         nd = self.node(node)
         temperature = self.default_temperature if T is None else T
         if callable(p):
@@ -140,13 +154,64 @@ class FlowModel:
         return self
 
     def mass_flow_boundary(self, node: str, *, mdot: float, T: float | None = None) -> FlowModel:
+        self._record("mass_flow_boundary", node=node, mdot=mdot, T=T)
         MassFlowBoundary(node=self.node(node), mdot=mdot, T=T).apply()
         return self
 
     def heat_source(self, node: str, *, power: float) -> FlowModel:
         """Impose a heat input rate [W] at a node (for the energy equation)."""
+        self._record("heat_source", node=node, power=power)
         self.node(node).heat_source = power
         return self
+
+    def set_volume(self, node: str, volume: float) -> FlowModel:
+        """Set a node's control-volume size [m^3] (e.g. a vessel). Overrides any value
+        accumulated from incident pipes."""
+        self._record("set_volume", node=node, volume=volume)
+        self.node(node).volume = volume
+        return self
+
+    def set_elevation(self, node: str, elevation: float) -> FlowModel:
+        """Set a node's elevation [m] (for the gravity/buoyancy term)."""
+        self._record("set_elevation", node=node, elevation=elevation)
+        self.node(node).elevation = elevation
+        return self
+
+    def set_initial(self, node: str, *, p: float | None = None,
+                    T: float | None = None) -> FlowModel:
+        """Set a node's initial pressure / temperature (e.g. a charged vessel for a
+        transient started with ``steady_init=False``)."""
+        self._record("set_initial", node=node, p=p, T=T)
+        nd = self.node(node)
+        if p is not None:
+            nd.state.p0 = p
+        if T is not None:
+            nd.state.T = T
+        return self
+
+    # ---- serialization -------------------------------------------------------------
+
+    def to_dict(self) -> dict[str, object]:
+        """Serialize the model to a plain dict (JSON-ready). See :mod:`openth.io`."""
+        from .io import model_to_dict
+        return model_to_dict(self)
+
+    def save(self, path: str) -> None:
+        """Write the model to a ``.json`` file."""
+        from .io import save_model
+        save_model(self, path)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, object]) -> FlowModel:
+        """Rebuild a model from a dict produced by :meth:`to_dict`."""
+        from .io import model_from_dict
+        return model_from_dict(data)
+
+    @classmethod
+    def load(cls, path: str) -> FlowModel:
+        """Load a model from a ``.json`` file written by :meth:`save`."""
+        from .io import load_model
+        return load_model(path)
 
     # ---- solving -------------------------------------------------------------------
 

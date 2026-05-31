@@ -117,15 +117,28 @@ optional CoolProp/NIST REFPROP bridge):
 
 ## 5. Tooling: web editor, solver-in-browser, doc export
 
+- **JSON model files** — ✅ done: `model.save(path)` / `th.Model.load(path)` round-trip the
+  high-level build directives (`openth.io`), and `openth run model.json` solves one. The
+  schema is the declarative payload the editor and LLM interface will exchange.
 - **Web-based network editor + file input** — a browser UI to lay out nodes/components and
-  edit the declarative model (the `io/` JSON/YAML schema; finish round-trip serialization
-  first). Build/query also drives the planned two-way LLM interface.
+  edit the declarative model (built on the `io/` JSON schema above). Build/query also drives
+  the planned two-way LLM interface.
 - **Online editor that runs the solver** — for **beginner users**: a hosted editor that
   invokes OpenTH and returns results/plots in the browser (no install). Pairs with the
   notebook/quickstart as the on-ramp; likely a small web service wrapping `FlowModel`/`Circuit`.
 - **draw.io export** — export a network design to **draw.io** (diagrams.net) format for
   documentation, so models can be embedded in reports/specs. (Import from draw.io is a natural
   complement.)
+
+## 6. Model composition (submodels)
+
+Build large models from **reusable submodels** — a sub-network defined once and instantiated
+(possibly many times) inside a bigger model, with a name prefix and a set of exposed
+**ports** (the nodes the parent connects to). E.g. a "recuperator" or a "core+blower" block
+reused across plant variants. This builds directly on the JSON directive format (§5): a
+submodel is a saved directive set, *included* with an `instance` prefix and a port→node
+remapping, so it nests and round-trips. Needed for plant-scale models and an editor's
+component palette.
 
 ---
 

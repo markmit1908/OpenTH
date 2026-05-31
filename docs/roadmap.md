@@ -161,8 +161,10 @@ single-phase part of #2.
 - **Performance (native core)** — reimplement the hot kernels (linear solves, coefficient
   assembly) in C/C++/Rust behind the same Python interfaces (`native/`), keeping the
   pure-Python reference for cross-checking. Sparse/Jacobian, MPI/OpenMP later.
-- **APIs & UX** — `FlowModel` + `Circuit` (done); finish declarative JSON/YAML
-  (de)serialization (`io/`), results/post-processing helpers, an example gallery.
+- **APIs & UX** — `FlowModel` + `Circuit` and **JSON model save/load** (`io/`,
+  `model.save`/`Model.load`, `openth run`) are done; next: **submodels/composition**
+  (reusable sub-networks, [backlog](backlog.md) §6), results/post-processing helpers, an
+  example gallery.
 - **Web tooling** (see [backlog](backlog.md) §5) — a **browser-based network editor** for
   building/editing models and file input; an **online editor that runs the solver** so
   *beginners* get results/plots with no install (a small web service over `FlowModel`/

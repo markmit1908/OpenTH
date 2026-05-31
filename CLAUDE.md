@@ -102,7 +102,11 @@ to the paper's equations — read it before touching the numerics):
   `__init__` must not import `llm` (optional `[llm]` extra).
 - **`benchmarks.py`** — the paper's Section 5 cases built on `FlowModel` (`build_*`/`run_*`
   + a `BENCHMARKS` registry); exposed via `openth benchmark`.
-- **`io/`** — declarative dict/JSON (de)serialization; also the LLM exchange payload.
+- **`io/`** — JSON model save/load. `FlowModel` records its build calls as **directives**
+  (`_directives`); `io.serialize` writes them + the fluid (high-level, hand-editable, not the
+  expanded mesh) and replays them on load. `model.save`/`Model.load`/`to_dict`/`from_dict`,
+  and `openth run model.json`. This declarative payload is also the LLM exchange format.
+  Callables (time-varying boundaries/valve schedules) aren't serializable.
 - **`llm/`** — optional two-way LLM interface. **The core must never import this**; the
   `anthropic` SDK lives behind the `[llm]` extra.
 
