@@ -34,11 +34,12 @@ FlowCalc/
 ## Key design decision
 
 The architecture mirrors the paper's discretization: **scalars (p₀, ρ, T, h₀) at cell
-centres (`Node`); flow `Q` at faces (`Element`)**. The load-bearing abstraction is
-`Element.momentum_coeffs() → MomentumCoeffs(a_plus, a_minus)` — the linearized eq. (20).
-That single interface is what lets the same pressure-correction machinery handle pipes
-*and* future non-pipe components (pumps, compressors, turbines, valves) uniformly, exactly
-as the paper describes.
+centres (`Node`); mass flow `ṁ` at faces (`Element`)**. The load-bearing abstraction is the
+per-element momentum closure — `Element.resistance(ρ)` (friction `Δp = K·ṁ|ṁ|`) plus
+optional `convective_dp` / `inertance` / `flow_area`. The solver linearizes it into the
+pressure-correction sensitivity `sₑ` (eq. 20). That single interface is what lets the same
+machinery handle pipes *and* non-pipe components (valves now; pumps, compressors, turbines
+to come) uniformly, exactly as the paper describes.
 
 ## Verified
 

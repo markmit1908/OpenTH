@@ -42,8 +42,10 @@ Subscripts `e`/`w` = the east/west (downstream/upstream) faces of a cell; supers
 1. Preliminary pressures `p̄₀` (previous time level / iteration).
 2. Preliminary flows `Q̄` from momentum (eq. 14); preliminary densities `ρ̄` from eq. (12).
 3. The corrected flow on a face is **linear in the end-node pressure corrections**:
-   `Q'ᵢ = a⁻·p'ᵢ − a⁺·p'ᵢ₊₁` (eq. 20), with link coefficients `a⁺`, `a⁻` (eqs. 21–22).
-   → `Element.momentum_coeffs` returning `MomentumCoeffs(a_plus, a_minus)`.
+   `ṁ'ₑ = sₑ·(p'_up − p'_down)` (eq. 20), with the flow sensitivity `sₑ` built from the
+   element's friction resistance `Kₑ = Element.resistance(ρ)` (and convective term
+   `Element.convective_dp`): steady `sₑ = 1/(2Kₑ|ṁ|)`, transient
+   `sₑ = α/(I/Δt + 2αKₑ|ṁ|)`.
 4. Substituting into continuity gives the **pressure-correction equation**
    `cP·p'ᵢ = cE·p'ᵢ₊₁ + cW·p'ᵢ₋₁ + bᵢ` (eqs. 24–28).
 5. Solve it: **Thomas algorithm** for a series pipeline, **sparse** solve for networks
