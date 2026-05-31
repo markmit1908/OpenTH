@@ -50,6 +50,11 @@ class PCIMSolver(Solver):
     # well-conditioned without affecting the converged result (where flows are finite).
     _MDOT_FLOOR = 1e-3
 
+    # A 'converged' steady result whose flows miss the momentum balance by more than this
+    # (relative to the flow scale) is a numerical breakdown, not a solution — e.g. the
+    # zero-flow collapse beyond the choking limit. See _guard_steady.
+    _MOMENTUM_TOL = 1e-2
+
     # ---- steady state --------------------------------------------------------------
 
     def steady_state(self) -> StepResult:
@@ -64,12 +69,12 @@ class PCIMSolver(Solver):
         if n == 0:
             # No pressure unknowns (e.g. one element between two pressure boundaries):
             # the flows are fixed by the boundary pressures; just converge them.
-            return self._converge_flows_only(self._update_flows_steady, time=0.0)
+            return self._guard_steady(self._converge_flows_only(self._update_flows_steady, 0.0))
 
         if not cfg.solve_energy:
             residual, iters = self._pressure_loop_steady(unknowns, index, n)
-            return StepResult(time=0.0, iterations=iters, residual=residual,
-                              converged=residual < cfg.tol)
+            return self._guard_steady(StepResult(time=0.0, iterations=iters, residual=residual,
+                                                 converged=residual < cfg.tol))
 
         # Non-isothermal: alternate a full pressure/flow solve with one energy update,
         # until both the mass imbalance and the temperature change are below tolerance.
@@ -80,9 +85,45 @@ class PCIMSolver(Solver):
             total += iters
             energy_change = self._solve_energy_steady()
             if residual < cfg.tol and energy_change < cfg.tol:
-                return StepResult(time=0.0, iterations=total, residual=residual,
-                                  converged=True)
+                return self._guard_steady(StepResult(time=0.0, iterations=total,
+                                                     residual=residual, converged=True))
         return StepResult(time=0.0, iterations=total, residual=residual, converged=False)
+
+    def _guard_steady(self, result: StepResult) -> StepResult:
+        """Downgrade a 'converged' steady result that is actually a numerical breakdown:
+        non-finite pressures, or a zero-flow collapse where the momentum balance is far from
+        satisfied (the classic false convergence beyond the choking limit / on fine meshes,
+        where mdot -> 0 trivially mass-balances). A genuine no-flow state (e.g. a hydrostatic
+        column, drive balanced by gravity) has a *small* momentum residual and is kept."""
+        if not result.converged:
+            return result
+        if not all(math.isfinite(nd.state.p0) for nd in self.network.nodes.values()):
+            return StepResult(result.time, result.iterations, math.inf, converged=False)
+        mom = self._momentum_residual()
+        if mom > self._MOMENTUM_TOL:
+            return StepResult(result.time, result.iterations, max(result.residual, mom),
+                              converged=False)
+        return result
+
+    def _momentum_residual(self) -> float:
+        """Max over faces of |target_flow - mdot| / scale, where target_flow is what the
+        momentum balance implies for the current pressures (drive incl. friction, head,
+        gravity, convection). ~0 at a real solution; large at a zero-flow collapse."""
+        ref = self._mass_scale()
+        worst = 0.0
+        for e in self.network.elements.values():
+            rho_up = e.density_at(e.upstream)
+            rho_down = e.density_at(e.downstream)
+            k = e.resistance(0.5 * (rho_up + rho_down))
+            if not math.isfinite(k) or k <= 0.0:
+                continue  # e.g. a shut valve: zero flow is correct
+            conv = e.convective_dp(rho_up, rho_down, e.mdot)
+            drive = ((e.upstream.state.p0 - e.downstream.state.p0)
+                     + e.head() + self._gravity_head(e, 0.5 * (rho_up + rho_down)) - conv)
+            target = math.copysign(math.sqrt(abs(drive) / k), drive)
+            ref = max(ref, abs(target))
+            worst = max(worst, abs(target - e.mdot))
+        return worst / ref
 
     def _pressure_loop_steady(self, unknowns: list[Node], index: dict[str, int],
                               n: int) -> tuple[float, int]:

@@ -267,6 +267,22 @@ class FlowModel:
             raise KeyError(f"no pipe named {pipe_name!r}")
         return sum(e.mdot for e in segs) / len(segs)
 
+    def max_mach(self) -> float:
+        """Maximum Mach number ``V/a`` anywhere in the network (elements with a finite flow
+        area, evaluated at the downstream node). Watch it approach the choking limit."""
+        best = 0.0
+        for e in self.network.elements.values():
+            area = e.flow_area()
+            if e.fluid is None or not math.isfinite(area) or area <= 0.0:
+                continue
+            nd = e.downstream
+            rho = e.fluid.density(nd.state.p0, nd.state.T)
+            if rho <= 0.0:
+                continue
+            v = abs(e.mdot) / (rho * area)
+            best = max(best, v / e.fluid.sonic_velocity(nd.state.p0, nd.state.T))
+        return best
+
     def _query(self, key: str) -> float:
         kind, _, ident = key.partition(":")
         if kind == "p":
@@ -277,4 +293,6 @@ class FlowModel:
             return self.flow(ident)
         if kind == "flow":
             return self.flow_through(ident)
-        raise ValueError(f"unknown record key {key!r} (use p:/T:/mdot:/flow:)")
+        if kind == "mach":
+            return self.max_mach()
+        raise ValueError(f"unknown record key {key!r} (use p:/T:/mdot:/flow:/mach)")

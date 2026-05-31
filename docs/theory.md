@@ -98,6 +98,26 @@ A **gravity/buoyancy** term `g·ρ_face·(z_up−z_down)` (from the `ρg cosθ` 
 via node elevations) is added to the momentum drive. Combined with the energy equation it
 gives density-driven **natural circulation** in heated loops, which bootstraps transiently.
 
+## Choking & compressibility limits
+
+Compressible duct flow chokes at a maximum mass flux: **M = 1** for adiabatic (Fanno) flow,
+**M = 1/√γ** for isothermal flow (≈0.775 for helium). It's a genuine singularity — the steady
+1-D equations carry a `1/(1−γM²)` factor, so `dp/dx → ∞` at the limit and **no steady subsonic
+solution exists** for a larger pressure ratio. A pressure-based subsonic solver is therefore
+intrinsically limited there: the flow's sensitivity to pressure blows up and the
+pressure-correction conductance goes singular in the choking direction.
+
+OpenTH is robust to ~Mach 0.74 (the compressible `p'`-convection term carries it there) and
+**must not silently return the wrong answer past it**. The failure mode is a *zero-flow
+collapse*: `ṁ → 0` trivially satisfies continuity, so the mass residual reads "converged."
+`PCIMSolver._guard_steady` catches this — after a converged steady solve it checks that the
+flows actually satisfy the **momentum balance** (and that pressures are finite); a large
+mismatch (zero flow with a finite, unbalanced drive) downgrades the result to
+`converged=False`. A genuine no-flow state (a hydrostatic column, drive balanced by gravity)
+has a small momentum residual and is kept. Properly *simulating* choked/critical flow
+(relief valves, breaks, nozzles) needs a choked-flow boundary treatment — see the
+[roadmap](roadmap.md) and [backlog](backlog.md).
+
 ## Benchmarks to validate against (Section 5)
 
 1. **Steady isothermal/non-isothermal pipeline** — compare pressure ratio vs. outlet Mach

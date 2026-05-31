@@ -165,6 +165,12 @@ Implementation notes worth preserving:
   exchanger, coupled only thermally).
 - A **`HeatExchanger`** adds an implicit conductive link `g=UA/cp` between its two nodes in
   the energy matrix (to the RHS for a fixed-T side) — stable for any UA, energy-conserving.
+- **Choking guard**: past the choking limit (`M=1/√γ` isothermal) there is no steady subsonic
+  solution and the solve collapses to `ṁ=0`, which *trivially* mass-balances → a false
+  "converged". `_guard_steady` downgrades such a result to `converged=False` by checking the
+  flows actually satisfy the momentum balance (`_momentum_residual`) and that pressures are
+  finite; a genuine no-flow state (hydrostatic, drive balanced by gravity) passes. `max_mach()`
+  / the `"mach"` record key report proximity to choking. Simulating choked flow is future work.
 
 Transcribe equations directly from `docs/papers/` (do **not** rely on memory or OCR), and
 **validate against the paper's benchmarks before trusting results**. Add each validated

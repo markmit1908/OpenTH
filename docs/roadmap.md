@@ -156,8 +156,13 @@ single-phase part of #2.
 
 ## 6. Cross-cutting workstreams
 
-- **Numerics / robustness** — transonic & choked-flow boundary treatment (today solid to
-  ~Mach 0.74, mesh-sensitive near choking); stronger coupled/Newton option for stiff cases.
+- **Choked / critical flow** *(wanted capability)* — *simulate* choking, not just survive it.
+  Today the subsonic solver is solid to ~Mach 0.74 (the isothermal choking limit) and now
+  **flags** the zero-flow collapse past it (`_guard_steady`) instead of returning it silently.
+  Next: a **choked-flow boundary treatment** — detect a face reaching the critical Mach and
+  impose the critical (sonic) mass flux, decoupling it from downstream pressure — so relief
+  valves, pipe breaks/blowdown, nozzles and orifices can be modelled through choking. Beyond
+  that, a density-based / coupled-Newton compressible solver for genuinely transonic flow.
 - **Performance (native core)** — reimplement the hot kernels (linear solves, coefficient
   assembly) in C/C++/Rust behind the same Python interfaces (`native/`), keeping the
   pure-Python reference for cross-checking. Sparse/Jacobian, MPI/OpenMP later.
@@ -206,11 +211,14 @@ So the MVP is gated on **v0.4 + v0.5**; it then becomes benchmark #7 and the fla
 1. ~~Activate gravity/buoyancy + a natural-circulation benchmark (#3).~~ ✅ **done.**
 2. **Real-fluid property layer** behind `FluidModel` (helium real props first; liquid thermal
    expansion so liquids drive buoyancy too), with a clean table/correlation interface.
-3. **Heat structures + heat exchanger** components and wall heat-transfer correlations (v0.4).
+3. **Heat structures** + wall heat-transfer correlations (v0.4; the lumped heat exchanger is
+   done). 
 4. **Pump coastdown / machine dynamics** and a first **control block** (v0.5).
-5. **CI** running the test suite + benchmark regressions on every PR.
-6. Opportunistic: turbine/orifice as named components; finish `io` JSON round-trip;
-   near-choking robustness.
+5. **Choked / critical flow** — a choked-flow boundary treatment so relief valves / breaks /
+   nozzles can be simulated through the choking limit (the zero-flow collapse past it is now
+   *flagged*, not silently returned).
+6. **CI** running the test suite + benchmark regressions on every PR.
+7. Opportunistic: turbine/orifice as named components (JSON model save/load is done).
 
 ---
 

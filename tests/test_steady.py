@@ -7,6 +7,7 @@ Each test checks the solver against an independently-computable answer:
 """
 
 import math
+import warnings
 
 import pytest
 
@@ -77,6 +78,27 @@ def test_incompressible_parallel_split_and_conservation():
     assert m1 + m2 == pytest.approx(mdot, rel=1e-6)
     # Equal pressure drop -> K1 m1^2 = K2 m2^2 -> m1/m2 = sqrt(K2/K1) = sqrt(L2/L1).
     assert m1 / m2 == pytest.approx(math.sqrt(40.0 / 10.0), rel=1e-4)
+
+
+def test_beyond_choking_is_not_falsely_converged():
+    """A pressure ratio past the isothermal choking limit (1/sqrt(gamma)) has no steady
+    subsonic solution; the solver must NOT report the trivial zero-flow state as converged."""
+    fluid = helium()
+    net = Network()
+    nodes = [net.add_node(Node(id=f"n{i}", volume=1.0)) for i in range(21)]
+    for nd in nodes:
+        nd.state.T = 300.0
+    for i in range(20):
+        net.add_element(Pipe(id=f"p{i}", upstream=nodes[i], downstream=nodes[i + 1],
+                             fluid=fluid, length=5.0, diameter=0.5, friction_factor=0.02))
+    PressureBoundary(node=nodes[0], p=700e3, T=300.0).apply()    # 3.5x ratio -> beyond choking
+    PressureBoundary(node=nodes[-1], p=200e3, T=300.0).apply()
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")  # the collapse passes a singular matrix to spsolve
+        result = PCIMSolver(
+            net, SolverConfig(relaxation=0.5, max_outer_iterations=2000)).steady_state()
+    assert not result.converged   # the zero-flow collapse is flagged, not reported as success
 
 
 def test_high_mach_pressure_driven_matches_closed_form():

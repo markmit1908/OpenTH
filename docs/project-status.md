@@ -26,7 +26,7 @@ OpenTH/
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
 ├── tests/            fluids·network·linear·steady·transient·energy·pump·buoyancy·
-│                      heat_exchanger·model·benchmarks·circuit·api·io  (53 passing)
+│                      heat_exchanger·model·benchmarks·circuit·api·io  (54 passing)
 ├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop ·
 │                      circuit_loop · natural_circulation · heat_exchanger ·
 │                      pipeline.json · quickstart.ipynb
@@ -53,7 +53,7 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **53 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+- `python -m pytest` → **54 passed** (fluid EOS, topology, Thomas solver, steady — incl.
   high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
   — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — the
   pump/compressor: uphill flow, operating point, temperature rise — gravity/buoyancy:
@@ -114,11 +114,16 @@ pressure-vessel blow-down), exposed via `openth benchmark [name]`.
 
 ## Still the real work
 
-- **Transonic / near-choking robustness**: solid to ~Mach 0.74 (isothermal choking limit),
-  but near choking the solve is mesh-sensitive and can collapse to a false zero-flow state.
-- More non-pipe components (`Pipe`/`Valve`/`Pump` exist; turbine = negative-head pump,
-  orifice = pure resistance, heat exchanger to come) via the closure hooks.
-- Wall heat transfer (temperature-dependent `q̇`); `Node.heat_source` is currently constant.
+- **Choked / critical flow**: solid to ~Mach 0.74 (isothermal choking limit); past it there
+  is no steady subsonic solution and the solver now **flags** the zero-flow collapse
+  (`_guard_steady` checks the momentum balance is satisfied) instead of returning it silently.
+  *Simulating* choking (relief valves, breaks, nozzles) needs a choked-flow boundary
+  treatment — see roadmap. (`max_mach()` / the `"mach"` record key report how close you are.)
+- More non-pipe components (`Pipe`/`Valve`/`Pump`/`HeatExchanger` exist; turbine = negative-
+  head pump, orifice = pure resistance, and the rest of the backlog) via the closure hooks.
+- Heat structures + wall heat transfer (temperature-dependent `q̇`); `Node.heat_source` is
+  currently constant and `HeatExchanger` is a lumped UA·ΔT coupling.
+- Submodel composition (backlog §6), and the web/online editor on-ramp.
 
 Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) stress transcribing
 equations directly from the PDF and validating against the paper's benchmarks before
