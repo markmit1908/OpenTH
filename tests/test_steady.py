@@ -79,6 +79,36 @@ def test_incompressible_parallel_split_and_conservation():
     assert m1 / m2 == pytest.approx(math.sqrt(40.0 / 10.0), rel=1e-4)
 
 
+def test_high_mach_pressure_driven_matches_closed_form():
+    """Pressure-driven flow near Mach ~0.6 -- exercises the compressible pressure-correction
+    term, which is what makes the high-Mach (transonic-approaching) range converge."""
+    fluid = helium()
+    L, D, f, T = 25.0, 0.5, 0.02, 300.0
+    p_in, p_out = 300e3, 200e3
+    n_cells = 5
+    dx = L / n_cells
+    area = 0.25 * math.pi * D**2
+
+    net = Network()
+    nodes = [net.add_node(Node(id=f"n{i}", volume=dx * area)) for i in range(n_cells + 1)]
+    for nd in nodes:
+        nd.state.T = T
+    for i in range(n_cells):
+        net.add_element(Pipe(id=f"p{i}", upstream=nodes[i], downstream=nodes[i + 1],
+                             fluid=fluid, length=dx, diameter=D, friction_factor=f))
+    PressureBoundary(node=nodes[0], p=p_in, T=T).apply()
+    PressureBoundary(node=nodes[-1], p=p_out, T=T).apply()
+
+    result = PCIMSolver(net, SolverConfig(relaxation=0.5, max_outer_iterations=600)).steady_state()
+    assert result.converged
+
+    # Closed form for given end pressures: p1^2 - p2^2 = G^2 R T (fL/D + 2 ln(p1/p2)).
+    g2 = (p_in**2 - p_out**2) / (fluid.R * T * (f * L / D + 2.0 * math.log(p_in / p_out)))
+    mdot_exact = math.sqrt(g2) * area
+    # Outlet Mach is ~0.6 here -- well into the range that failed before the compressible term.
+    assert net.elements["p0"].mdot == pytest.approx(mdot_exact, rel=3e-3)
+
+
 def test_compressible_isothermal_matches_closed_form():
     fluid = helium()
     L, D, f, p_out, T = 100.0, 0.5, 0.02, 200e3, 300.0

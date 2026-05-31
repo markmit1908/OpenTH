@@ -66,14 +66,16 @@ upwind convection on the converged flow field, alternating with the pressure loo
   produces water-hammer, reproduces the blow-down decay.
 - Energy validated: adiabatic h₀ conserved (~1e-9, with expansion cooling); heat addition
   matches `Q/ṁ`; transient energy matches the steady energy solve.
-- Robustness: flow under-relaxation (`relaxation`) tames the high-Mach convective feedback;
-  `_converge_flows_only` handles networks with no interior pressure unknowns; the energy
-  `h₀→T` step is change-limited to keep the kinetic coupling stable.
+- Robustness: a **compressible upwind `p'`-convection term** in the continuity equation
+  (the density correction `ρ'=∂ρ/∂p·p'` of the convected mass, eqs. 25-27) extends the
+  pressure-driven range to ~Mach 0.74 (the choking limit); flow under-relaxation tames the
+  convective feedback; `_converge_flows_only` handles no-interior-unknown networks; the
+  energy `h₀→T` step is change-limited to keep the kinetic coupling stable.
 
 ## Still the real work
 
-- **Higher-Mach robustness**: the pressure↔temperature coupling is solid below ~Mach 0.4
-  for pressure-driven flow; above that the segregated under-relaxation strains.
+- **Transonic / near-choking robustness**: solid to ~Mach 0.74 (isothermal choking limit),
+  but near choking the solve is mesh-sensitive and can collapse to a false zero-flow state.
 - Non-pipe component closures beyond `Valve` (pump/compressor/turbine/orifice/heat-exchanger).
 - Wall heat transfer (temperature-dependent `q̇`); `Node.heat_source` is currently constant.
 
@@ -93,6 +95,6 @@ pip install -e ".[dev,llm]"
 
 ## Suggested next step
 
-Harden the high-Mach pressure↔temperature coupling (coupled solve / line search / the
-paper's exact total-pressure linearization), and/or add the next non-pipe component model
-(pump or compressor) via the `resistance`/`convective_dp`/`inertance` interface.
+Add the next non-pipe component model (pump or compressor) via the
+`resistance`/`convective_dp`/`inertance` interface, and/or harden the near-choking regime
+(choked-flow boundary treatment) to remove the mesh-sensitive zero-flow collapse.

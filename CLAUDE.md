@@ -15,10 +15,10 @@ validated**, including **non-isothermal flow** (energy-equation coupling). Stead
 the closed-form isothermal compressible pipe-flow law to ~0% error; the transient marches
 to the steady fixed point, conserves mass exactly, and reproduces water-hammer and the
 blow-down decay; the energy solve conserves total enthalpy in adiabatic flow (~1e-9) and
-matches `Q/ṁ` for heat addition. See `examples/` and `tests/`. The segregated
-pressure↔temperature coupling is robust below ~Mach 0.4 for pressure-driven flow (as with
-the isothermal pressure-driven solve); higher-Mach robustness and more non-pipe components
-are the remaining work — see "Implementing the solver core".
+matches `Q/ṁ` for heat addition. See `examples/` and `tests/`. With the compressible
+pressure-correction term (eqs. 25-27) the solver is robust up to ~Mach 0.74 — the isothermal
+choking limit `1/√γ`, beyond which no steady subsonic solution exists. More non-pipe
+component models are the main remaining work — see "Implementing the solver core".
 
 ## Commands
 
@@ -91,15 +91,20 @@ steady is the dt→∞ limit of Section 4, transient adds the storage/inertia te
 `alpha` time-weighting), and the **energy equation** (eqs. 29-34) is coupled when
 `SolverConfig.solve_energy` is set. All three are validated (`tests/`). The remaining work:
 
-- **Higher-Mach / harder networks**: the segregated pressure↔temperature coupling is robust
-  below ~Mach 0.4 for pressure-driven flow; above that the convective feedback strains the
-  simple under-relaxation. A more robust coupling (e.g. coupled solve, line search, or the
-  paper's exact total-pressure linearization) would extend the range.
 - **More non-pipe components** (`Valve`/`Pipe` exist; pump/compressor/turbine/orifice/
   heat-exchanger to come), each via `resistance`/`convective_dp`/`inertance`/`flow_area`.
 - Wall heat transfer (temperature-dependent `q̇`); currently `Node.heat_source` is constant.
+- **Transonic / near-choking robustness**: the solver is solid up to ~Mach 0.74 (the
+  isothermal choking limit), but near choking it is mesh-sensitive — fine meshes can still
+  collapse to the trivial zero-flow state (which then mass-balances to a false "converged").
+  Genuine transonic handling (choked-flow boundary treatment) is future work.
 
 Implementation notes worth preserving:
+- The continuity equation carries a **compressible upwind convection of `p'`** — the density
+  change `ρ'=∂ρ/∂p·p'` of the convected mass (eqs. 25-27; coefficient `κ=(∂ρ/∂p)/ρ=1/p` for
+  an ideal gas). It scales with the mass flow, so it vanishes at low Mach (recovering
+  incompressible SIMPLE) and dominates at high Mach, where it is what makes the solve
+  converge. Without it the pressure-driven solve diverges above ~Mach 0.4.
 - The flow update is **under-relaxed** (`SolverConfig.relaxation`): the convective term
   couples flow to itself and diverges at high Mach in pressure-driven problems.
 - A network with **no interior pressure unknowns** (e.g. one element between two pressure

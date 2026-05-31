@@ -47,7 +47,12 @@ Subscripts `e`/`w` = the east/west (downstream/upstream) faces of a cell; supers
    `Element.convective_dp`): steady `sₑ = 1/(2Kₑ|ṁ|)`, transient
    `sₑ = α/(I/Δt + 2αKₑ|ṁ|)`.
 4. Substituting into continuity gives the **pressure-correction equation**
-   `cP·p'ᵢ = cE·p'ᵢ₊₁ + cW·p'ᵢ₋₁ + bᵢ` (eqs. 24–28).
+   `cP·p'ᵢ = cE·p'ᵢ₊₁ + cW·p'ᵢ₋₁ + bᵢ` (eqs. 24–28). The convected mass `ρₑṁ`-correction has
+   two parts: the **flow change** `ρ̄·ṁ'` (diffusion-like, `sₑ`) *and* the **density change**
+   `ρ'·ṁ̄` of the convected mass (`ρ'=∂ρ/∂p·p'`). The latter is an **upwind convection of
+   `p'`** with coefficient `κ=(∂ρ/∂p)/ρ=1/p`; it scales with the mass flow, so it is
+   negligible at low Mach (→ incompressible SIMPLE) and dominant at high Mach, where it is
+   what keeps the solve stable up to the choking limit.
 5. Solve it: **Thomas algorithm** for a series pipeline, **sparse** solve for networks
    (`solver.linear.thomas` / `sparse_solve`).
 6. Update `p₀, Q, ρ` with the corrections (eqs. 16–20); iterate (inner loop).
@@ -85,8 +90,9 @@ Validated (`tests/`): steady matches the closed-form isothermal pipe law to ~0%;
 transient marches to the steady fixed point (~1e-9), conserves mass exactly in the
 θ-weighted sense (~1e-9), and produces water-hammer + the blow-down decay; the energy solve
 conserves h₀ in adiabatic flow (~1e-9, with expansion cooling) and matches `Q/ṁ` for heat
-addition. The pressure↔temperature coupling is robust below ~Mach 0.4 for pressure-driven
-flow (higher-Mach robustness is future work).
+addition. With the compressible pressure-correction term (step 4) the solve is robust up to
+~Mach 0.74 (the isothermal choking limit `1/√γ`); near choking it becomes mesh-sensitive,
+and genuine transonic/choked handling is future work.
 
 ## Benchmarks to validate against (Section 5)
 

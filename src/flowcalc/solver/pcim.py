@@ -96,19 +96,29 @@ class PCIMSolver(Solver):
             cols: list[int] = []
             data: list[float] = []
             b = np.zeros(n)
+            kappa = {node.id: self._kappa(node) for node in unknowns}
             for node in unknowns:
                 i = index[node.id]
                 diag = 0.0
                 outflow = -node.mass_source
                 for e in self.network.elements_at(node):
                     d = self._conductance_steady(e)
-                    diag += d
                     other = e.downstream if e.upstream is node else e.upstream
-                    outflow += (1.0 if e.upstream is node else -1.0) * e.mdot
+                    mass_out = (1.0 if e.upstream is node else -1.0) * e.mdot
+                    outflow += mass_out
+                    # Diffusion (flow change s*dp'); compressible upwind convection of p'
+                    # (density change rho'=drho/dp*p' of the convected mass -- eqs. 25-27),
+                    # which scales with the mass flow and stabilises high-Mach flow.
+                    diag += d
+                    off = -d
+                    if mass_out >= 0.0:
+                        diag += mass_out * kappa[node.id]        # outflow: upwind is node i
+                    else:
+                        off += mass_out * self._kappa(other)     # inflow: upwind is neighbour
                     if not other.is_boundary:
                         rows.append(i)
                         cols.append(index[other.id])
-                        data.append(-d)
+                        data.append(off)
                 rows.append(i)
                 cols.append(i)
                 data.append(diag)
@@ -179,6 +189,7 @@ class PCIMSolver(Solver):
             cols: list[int] = []
             data: list[float] = []
             b = np.zeros(n)
+            kappa = {node.id: self._kappa(node) for node in unknowns}
             for node in unknowns:
                 i = index[node.id]
                 # Storage diagonal: V (drho/dp) / dt  (compressibility coupling, eq. 17).
@@ -186,12 +197,20 @@ class PCIMSolver(Solver):
                 outflow = self._net_outflow(node)
                 for e in self.network.elements_at(node):
                     s = self._sensitivity_transient(e, dt, alpha)
-                    diag += alpha * s
                     other = e.downstream if e.upstream is node else e.upstream
+                    mass_out = (1.0 if e.upstream is node else -1.0) * e.mdot
+                    # Diffusion (flow change) + compressible upwind p' convection (density
+                    # change of the convected mass), as in the steady solve.
+                    diag += alpha * s
+                    off = -alpha * s
+                    if mass_out >= 0.0:
+                        diag += alpha * mass_out * kappa[node.id]
+                    else:
+                        off += alpha * mass_out * self._kappa(other)
                     if not other.is_boundary:
                         rows.append(i)
                         cols.append(index[other.id])
-                        data.append(-alpha * s)
+                        data.append(off)
                 rows.append(i)
                 cols.append(i)
                 data.append(diag)
@@ -453,6 +472,15 @@ class PCIMSolver(Solver):
 
     def _drho_dp(self, node: Node) -> float:
         return self._node_fluid(node).drho_dp(node.state.p0, node.state.T)
+
+    def _kappa(self, node: Node) -> float:
+        """Relative compressibility (drho/dp)/rho at a node [1/Pa].
+
+        The coefficient of the upwind pressure-correction convection term that makes the
+        continuity equation compressible (eqs. 25-27); for an ideal gas it is 1/p.
+        """
+        rho = self._density(node)
+        return self._drho_dp(node) / rho if rho > 0.0 else 0.0
 
     def _initialise_state(self) -> None:
         """Fill in any unset pressures/temperatures from the fixed boundaries."""
