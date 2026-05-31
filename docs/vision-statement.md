@@ -4,10 +4,10 @@ jdate: 2026-05-31
 
 # OpenTH — Vision Statement
 
-> The founding concept and roadmap for OpenTH. The repository today implements the single-phase
-> PCIM flow-network kernel (the v0.1–v0.2 foundation described below); this document is the north
-> star for where it is headed. See [`README.md`](../README.md) for current status and
-> [`project-status.md`](project-status.md) for the implementation snapshot.
+> The founding concept for OpenTH. The repository today implements the single-phase PCIM
+> flow-network kernel (the v0.1–v0.2 foundation described below); this document is the north
+> star for where it is headed. For the sequenced plan see [`roadmap.md`](roadmap.md); for the
+> implementation snapshot see [`project-status.md`](project-status.md).
 
 Concept: build OpenTH — an open-source, Python-first, reactor-grade 1D thermal-hydraulic system code.
 

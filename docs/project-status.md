@@ -30,7 +30,8 @@ OpenTH/
 │                      circuit_loop · quickstart.ipynb
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
-│   ├── vision-statement.md  OpenTH founding concept + roadmap (north star)
+│   ├── vision-statement.md  OpenTH founding concept (north star)
+│   ├── roadmap.md    product strategy + phased development plan & status
 │   ├── theory.md     maps every module to the paper's equations
 │   ├── user-guide.md end-user manual (FlowModel API + running the benchmarks)
 │   └── project-status.md   ← this file
