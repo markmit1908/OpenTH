@@ -48,6 +48,28 @@ tour (steady solve, transient plot, the `Circuit` API, and the benchmarks). If a
 can't import `openth`, run Jupyter from the repo root or add `sys.path.insert(0, "src")` in
 the first cell (the quickstart does this automatically).
 
+### Editor setup (VS Code)
+
+The repo ships a `.vscode/` config so VS Code works out of the box:
+
+1. **Install deps** into the venv (includes `ipykernel`, what the Jupyter extension needs):
+   ```bash
+   pip install -e ".[notebook]"
+   ```
+2. **Install the extensions.** Opening the folder prompts *"install recommended extensions"*
+   (see `.vscode/extensions.json`): **Python** (`ms-python.python`) and **Jupyter**
+   (`ms-toolsai.jupyter`).
+3. **Select the interpreter.** `.vscode/settings.json` already points at `./.venv/bin/python`;
+   otherwise *Cmd/Ctrl+Shift+P → "Python: Select Interpreter" → ./.venv*.
+4. **Run a notebook.** Open `examples/quickstart.ipynb`, pick the `.venv` kernel (top-right
+   *"Select Kernel"*), and **Run All**. Plots render inline. Tests are wired to the Testing
+   panel (`pytest`).
+
+The committed settings set `jupyter.notebookFileRoot` to the repo root so `openth` imports
+without a manual `pip install`. Troubleshooting: *"No module named openth"* usually means the
+wrong kernel is selected — pick the `.venv`; *no kernel listed* means `ipykernel` is missing
+— re-run the install above and reload the window.
+
 ## 2. Core concepts
 
 OpenTH uses a finite-volume discretization (the paper's Fig. 1):
