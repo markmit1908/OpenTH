@@ -3,7 +3,8 @@
 This document turns the [vision statement](vision-statement.md) into a sequenced development
 plan: where OpenTH is today, the phased path forward, and the validation and governance that
 make it credible. For the current implementation detail see
-[project-status.md](project-status.md); for the method see [theory.md](theory.md).
+[project-status.md](project-status.md); for the method see [theory.md](theory.md); for the
+full list of requested components and capabilities see the [backlog](backlog.md).
 
 *Status legend:* ✅ done · ◑ partial · ☐ planned. Timing is by horizon — **Now** (current
 focus), **Next** (following milestones), **Later** (post-MVP / long-range) — not hard dates.
@@ -71,7 +72,7 @@ The vision's version stack, with status and the gate that "closes" each phase:
 | v0.1 | Incompressible single-phase | ✅ | analytic friction (series/parallel) |
 | v0.2 | Compressible ideal gas (steady + transient + energy) | ✅ | isothermal pipe law; water-hammer; blow-down |
 | v0.3 | Buoyancy/gravity ✅ + real-fluid properties | ◑ Now | natural-circulation loop ✅ |
-| v0.4 | Heat structures & conjugate heat transfer | ☐ Next | heat-exchanger transient |
+| v0.4 | Heat exchanger ✅ + heat structures & conjugate heat transfer | ◑ Next | heat-exchanger transient |
 | v0.5 | Controls, trips & rotating-machine dynamics | ☐ Next | pump coastdown |
 | v0.6 | Reactor point kinetics | ☐ Next | reactivity-insertion transient |
 | **MVP** | **Gas-cooled reactor loop demo** | ☐ Next | helium loop (see §7) |
@@ -88,9 +89,11 @@ gas / constant density — helium real properties, then sodium / lead / FLiBe / 
 tables behind the existing `FluidModel` ABC (incl. liquid thermal expansion, so liquids also
 drive buoyancy).
 
-**v0.4 — heat structures.** A `HeatStructure` (wall thermal mass + 1D conduction) and a
-`HeatExchanger` (primary/secondary coupling), plus wall heat-transfer correlations so
-`q̇` becomes temperature-dependent (today `Node.heat_source` is a fixed power).
+**v0.4 — heat structures.** A lumped **`HeatExchanger`** (UA·ΔT node coupling) is **done**
+(✅, `examples/heat_exchanger.py`). Still to do: a `HeatStructure` (wall thermal mass + 1D
+conduction), heat-transport elements (convection/conduction/radiation), and wall
+heat-transfer correlations so `q̇` becomes temperature-dependent (today `Node.heat_source` is
+a fixed power); plus effectiveness-NTU and distributed/counter-flow exchangers.
 
 **v0.5 — controls & machines.** A `ControlBlock` layer (PID, trips, logic, time-/event-driven
 actions) and rotating-machine dynamics (pump speed, inertia, **coastdown**); generalise the
@@ -116,7 +119,7 @@ The vision's minimum object set, mapped to the code:
 | Valve / orifice | loss coefficient; choking later | ◑ `Valve`; orifice via pure-resistance pipe; choked-flow ☐ |
 | Turbine | negative-head/work machine | ☐ (a `Pump` with negative head/work) |
 | Heat structure | wall thermal mass, conduction | ☐ |
-| Heat exchanger | primary/secondary coupling | ☐ |
+| Heat exchanger | primary/secondary coupling | ✅ `HeatExchanger` (lumped UA·ΔT); NTU/distributed ☐ |
 | Boundary condition | pressure, mass flow, temperature | ✅ |
 | Point-kinetics source | reactor power transient | ☐ |
 | Control block | PID, trips, logic | ☐ |
@@ -160,6 +163,10 @@ single-phase part of #2.
   pure-Python reference for cross-checking. Sparse/Jacobian, MPI/OpenMP later.
 - **APIs & UX** — `FlowModel` + `Circuit` (done); finish declarative JSON/YAML
   (de)serialization (`io/`), results/post-processing helpers, an example gallery.
+- **Web tooling** (see [backlog](backlog.md) §5) — a **browser-based network editor** for
+  building/editing models and file input; an **online editor that runs the solver** so
+  *beginners* get results/plots with no install (a small web service over `FlowModel`/
+  `Circuit`); and **draw.io export** of network designs for documentation.
 - **External coupling** — Python-native coupling to OpenMC (neutronics), and to
   MOOSE / Cardinal / NekRS for higher-fidelity sub-models.
 - **LLM interface** — the optional two-way `openth.llm` layer (build/query models in natural

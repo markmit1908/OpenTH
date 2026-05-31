@@ -6,8 +6,9 @@ OpenTH aims to be *the OpenMC of reactor thermal-hydraulics*: a transparent, scr
 and extensible thermal-fluid network solver for steady-state and transient reactor systems —
 filling the gap between Flownex-style system modelling and RELAP-class reactor transient analysis,
 with advanced reactors (gas-cooled, molten-salt) as the first target. See the
-**[Vision Statement](docs/vision-statement.md)** for the concept and positioning, and the
-**[Roadmap & Product Strategy](docs/roadmap.md)** for the phased development plan and status.
+**[Vision Statement](docs/vision-statement.md)** for the concept and positioning, the
+**[Roadmap & Product Strategy](docs/roadmap.md)** for the phased development plan and status,
+and the **[Backlog](docs/backlog.md)** for the requested component/capability catalog.
 
 ## Vision (in brief)
 

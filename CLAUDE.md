@@ -65,13 +65,15 @@ to the paper's equations — read it before touching the numerics):
   **face / branch** carrying mass flow `mdot`. `Network` owns the graph. The
   cell-centre-vs-face split is the paper's discretization (Fig. 1) and is load-bearing.
 - **`components/`** — concrete `Element`s. `Pipe` is canonical; non-pipe components
-  (`Valve`, `Pump`/compressor, and future turbine/orifice/heat-exchanger) plug in by
-  overriding the closure hooks: `resistance` / `convective_dp` / `inertance` / `flow_area`,
-  plus `head` (a pump/compressor pressure rise added to the momentum drive) and
-  `work_per_mass` (shaft work raising total enthalpy in the energy solve). `PressureBoundary`
-  pins a node's pressure (and temperature) and marks it `is_boundary` (removed from
-  unknowns); `MassFlowBoundary` instead sets the node's `mass_source` (and optionally a
-  fixed inlet `T`) and leaves the pressure an unknown.
+  (`Valve`, `Pump`/compressor, and future turbine/orifice) plug in by overriding the closure
+  hooks: `resistance` / `convective_dp` / `inertance` / `flow_area`, plus `head` (a
+  pump/compressor pressure rise added to the momentum drive) and `work_per_mass` (shaft work
+  raising total enthalpy in the energy solve). `PressureBoundary` pins a node's pressure (and
+  temperature) and marks it `is_boundary` (removed from unknowns); `MassFlowBoundary` instead
+  sets the node's `mass_source` (and optionally a fixed inlet `T`) and leaves the pressure an
+  unknown. A `HeatExchanger` (in `network/coupling.py`, `Network.heat_exchangers`) is **not**
+  an element — it's a thermal coupling between two nodes (heat `UA·ΔT`, hot→cold), applied in
+  the energy solve only.
 - **`fluids/`** — equations of state behind the `FluidModel` ABC. `IdealGas` implements
   `p = sρRT` (the paper's gas variant; `helium()` is the benchmark fluid); `Incompressible`
   the liquid variant. Each also provides `drho_dp` (compressibility) and
@@ -123,11 +125,12 @@ steady is the dt→∞ limit of Section 4, transient adds the storage/inertia te
 `alpha` time-weighting), and the **energy equation** (eqs. 29-34) is coupled when
 `SolverConfig.solve_energy` is set. All three are validated (`tests/`). The remaining work:
 
-- **More non-pipe components** (`Pipe`/`Valve`/`Pump` exist; turbine/orifice/heat-exchanger
-  to come), each via the closure hooks (`resistance`/`convective_dp`/`inertance`/`flow_area`/
-  `head`/`work_per_mass`). A turbine is a `Pump` with negative head / negative work; an
-  orifice is a `Pipe`-like pure resistance.
-- Wall heat transfer (temperature-dependent `q̇`); currently `Node.heat_source` is constant.
+- **More non-pipe components** (`Pipe`/`Valve`/`Pump`/`HeatExchanger` exist; turbine/orifice
+  and the rest of the [backlog](docs/backlog.md) catalog to come), each via the closure hooks
+  (`resistance`/`convective_dp`/`inertance`/`flow_area`/`head`/`work_per_mass`). A turbine is
+  a `Pump` with negative head / negative work; an orifice is a `Pipe`-like pure resistance.
+- Wall heat transfer (temperature-dependent `q̇`) and heat structures; currently
+  `Node.heat_source` is constant and `HeatExchanger` is a lumped UA·ΔT node coupling.
 - **Transonic / near-choking robustness**: the solver is solid up to ~Mach 0.74 (the
   isothermal choking limit), but near choking it is mesh-sensitive — fine meshes can still
   collapse to the trivial zero-flow state (which then mass-balances to a false "converged").
@@ -151,10 +154,17 @@ Implementation notes worth preserving:
   non-conserving field makes the convective diagonal (nodal outflow) mismatch the inflow
   RHS and `h₀` blows up. The `h₀→T` step (via `½V²`) is also change-limited per iteration
   because the T↔ρ↔V kinetic coupling can otherwise run away (low ρ → high V → negative T).
+- The pressure update is **floored positive** (`_apply_pressure_correction` caps the drop to
+  ≥10% of the current `p`): a mass-flow inlet into a low-resistance pipe can otherwise
+  overshoot to negative `p` → ρ≤0 → singular resistance → NaN. Needed for stiff and
+  **hydraulically-disconnected** networks (e.g. the two independent streams of a heat
+  exchanger, coupled only thermally).
+- A **`HeatExchanger`** adds an implicit conductive link `g=UA/cp` between its two nodes in
+  the energy matrix (to the RHS for a fixed-T side) — stable for any UA, energy-conserving.
 
 Transcribe equations directly from `docs/papers/` (do **not** rely on memory or OCR), and
 **validate against the paper's benchmarks before trusting results**. Add each validated
-benchmark as a test (see `tests/test_steady.py`, `test_transient.py`, `test_energy.py`).
+benchmark as a test (e.g. `tests/test_steady.py`, `test_energy.py`, `test_heat_exchanger.py`).
 
 ## Conventions
 

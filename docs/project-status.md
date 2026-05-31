@@ -25,14 +25,15 @@ OpenTH/
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
-├── tests/            fluids·network·linear·steady·transient·energy·pump·buoyancy·model·
-│                      benchmarks·circuit·api  (46 passing)
+├── tests/            fluids·network·linear·steady·transient·energy·pump·buoyancy·
+│                      heat_exchanger·model·benchmarks·circuit·api  (47 passing)
 ├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop ·
-│                      circuit_loop · natural_circulation · quickstart.ipynb
+│                      circuit_loop · natural_circulation · heat_exchanger · quickstart.ipynb
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── vision-statement.md  OpenTH founding concept (north star)
 │   ├── roadmap.md    product strategy + phased development plan & status
+│   ├── backlog.md    requested components & capabilities, grouped by theme
 │   ├── theory.md     maps every module to the paper's equations
 │   ├── user-guide.md end-user manual (FlowModel API + running the benchmarks)
 │   └── project-status.md   ← this file
@@ -51,12 +52,12 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **46 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+- `python -m pytest` → **47 passed** (fluid EOS, topology, Thomas solver, steady — incl.
   high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
   — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — the
   pump/compressor: uphill flow, operating point, temperature rise — gravity/buoyancy:
-  hydrostatic column + natural circulation — the `FlowModel` facade, the `Circuit`
-  port/connection API, and the four Section 5 benchmarks)
+  hydrostatic column + natural circulation — the heat exchanger: energy-conserving UA·ΔT —
+  the `FlowModel` facade, the `Circuit` port/connection API, and the four Section 5 benchmarks)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
@@ -86,6 +87,11 @@ upwind convection on the converged flow field, alternating with the pressure loo
   (`Node.elevation`, `SolverConfig.gravity`, `add_pipe(delta_elevation=…)`). Validated by an
   exact hydrostatic column and by transient **natural circulation** in a heated closed loop
   (flow spins up from rest, in the buoyancy direction, and vanishes with gravity off).
+- **Heat exchanger** (`HeatExchanger`, `add_heat_exchanger`): a lumped UA·ΔT thermal coupling
+  between two nodes, implicit in the energy matrix (`g=UA/cp`) and energy-conserving — the
+  recuperator arrangement. Coupling two streams needs hydraulically-disconnected
+  subnetworks, which surfaced (and fixed) a pressure-positivity guard
+  (`_apply_pressure_correction`) so stiff/disconnected nets don't overshoot to negative `p`.
 
 ## User model & benchmarks — done ✅
 
