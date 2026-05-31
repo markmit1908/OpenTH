@@ -1,0 +1,71 @@
+"""Solver interfaces and configuration shared by all solver back ends."""
+
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from dataclasses import dataclass
+
+from ..network import Network
+
+
+@dataclass
+class SolverConfig:
+    """Tunables for the segregated pressure-correction solve.
+
+    Attributes
+    ----------
+    alpha : float
+        Time-integration weighing factor in [0.5, 1] (paper Section 3). alpha=1 is fully
+        implicit (1st-order), alpha=0.5 is Crank-Nicolson (2nd-order but prone to
+        instability); alpha=0.6 is the recommended accuracy/stability compromise.
+    max_outer_iterations : int
+        Maximum momentum<->energy outer iterations per time step.
+    max_pressure_iterations : int
+        Inner pressure-correction iterations per outer iteration.
+    tol : float
+        Convergence tolerance on the pressure-correction residual.
+    """
+
+    alpha: float = 0.6
+    max_outer_iterations: int = 50
+    max_pressure_iterations: int = 20
+    tol: float = 1e-6
+
+    def __post_init__(self) -> None:
+        if not 0.5 <= self.alpha <= 1.0:
+            raise ValueError("alpha must lie in [0.5, 1.0] for a stable scheme (paper Section 3)")
+
+
+@dataclass
+class StepResult:
+    """Outcome of advancing one time step (or one steady-state solve)."""
+
+    time: float
+    iterations: int
+    residual: float
+    converged: bool
+
+
+class Solver(ABC):
+    """Base class for flow-network solvers."""
+
+    def __init__(self, network: Network, config: SolverConfig | None = None) -> None:
+        self.network = network
+        self.config = config or SolverConfig()
+
+    @abstractmethod
+    def steady_state(self) -> StepResult:
+        """Solve for the steady state (used standalone and as a transient initial condition)."""
+
+    @abstractmethod
+    def step(self, dt: float, t: float) -> StepResult:
+        """Advance the solution by one time step of size ``dt`` ending at time ``t``."""
+
+    def run(self, dt: float, duration: float) -> list[StepResult]:
+        """March from the current state over ``duration`` in steps of ``dt``."""
+        results: list[StepResult] = []
+        t = 0.0
+        while t < duration - 1e-12:
+            t += dt
+            results.append(self.step(dt, t))
+        return results

@@ -1,0 +1,81 @@
+# Theory: the implicit Pressure-Correction (PC / PCIM) method
+
+Working notes mapping Greyvenstein (2002) onto the FlowCalc code. The source paper is in
+[`papers/`](papers/Greyvenstein-2001-implicit-transient-pipe-networks.pdf). Equation
+numbers below refer to that paper.
+
+## The idea in one paragraph
+
+Transient compressible flow in a network is governed by **continuity**, **momentum** and
+**energy** PDEs (eqs. 1–3). Discretized with a finite-volume scheme (Fig. 1), they become
+a coupled algebraic system for pressure, flow, density and enthalpy at the new time level.
+Rather than solve that monolithically, the method is **segregated** (SIMPLE-style): from a
+guessed pressure field it computes preliminary flows and densities, then derives a
+**pressure-correction equation** (from continuity) whose solution nudges the fields toward
+satisfying all the equations simultaneously. Iterating to convergence at each time step
+gives an implicit scheme that is stable for large time steps — its key advantage over
+explicit methods (MOC, Lax–Wendroff) on slow transients.
+
+## Discretization layout (Fig. 1) → code
+
+| Quantity | Lives at | Code |
+|----------|----------|------|
+| pressure `p₀`, density `ρ`, temperature `T`, enthalpy `h₀` | **cell centre** | `network.Node` / `NodeState` |
+| volumetric flow `Q`, velocity `V` | **cell face** | `network.Element` (e.g. `components.Pipe`) |
+
+Subscripts `e`/`w` = the east/west (downstream/upstream) faces of a cell; superscript `o`
+= previous time level; a prime `'` = a correction; an overbar = a preliminary value.
+
+## Governing equations
+
+- **Continuity** (eq. 1), integrated over a control volume → eq. (13).
+- **Momentum** (eq. 2). The convective-acceleration term is *retained* but eliminated by
+  recasting in terms of **total pressure** `p₀` (eqs. 4–10): for liquids via eq. (6), for
+  gases via eq. (10) with the **effective friction factor** `f̃` (eq. 11). Integrated over
+  a face-centred control volume → eq. (14).
+- **Energy** (eq. 3), integrated → eq. (15).
+- **Equation of state** for gas: `p = s ρ R T` (eq. 12), with compressibility factor `s`.
+  → `fluids.IdealGas`. Liquids use constant density → `fluids.Incompressible`.
+
+## Solution algorithm (Section 4) → `solver.PCIMSolver`
+
+1. Preliminary pressures `p̄₀` (previous time level / iteration).
+2. Preliminary flows `Q̄` from momentum (eq. 14); preliminary densities `ρ̄` from eq. (12).
+3. The corrected flow on a face is **linear in the end-node pressure corrections**:
+   `Q'ᵢ = a⁻·p'ᵢ − a⁺·p'ᵢ₊₁` (eq. 20), with link coefficients `a⁺`, `a⁻` (eqs. 21–22).
+   → `Element.momentum_coeffs` returning `MomentumCoeffs(a_plus, a_minus)`.
+4. Substituting into continuity gives the **pressure-correction equation**
+   `cP·p'ᵢ = cE·p'ᵢ₊₁ + cW·p'ᵢ₋₁ + bᵢ` (eqs. 24–28).
+5. Solve it: **Thomas algorithm** for a series pipeline, **sparse** solve for networks
+   (`solver.linear.thomas` / `sparse_solve`).
+6. Update `p₀, Q, ρ` with the corrections (eqs. 16–20); iterate (inner loop).
+7. Solve the **energy equation** for `h₀` (eqs. 29–34, upwinded), tridiagonal/sparse.
+8. Iterate momentum/continuity ↔ energy to convergence; advance to the next step.
+
+## Time integration
+
+Weighing factor **α ∈ [0.5, 1]** (`SolverConfig.alpha`):
+
+- α = 1 → fully implicit, 1st-order in time (more numerical damping).
+- α = 0.5 → Crank–Nicolson, 2nd-order, but the scheme becomes **unstable near 0.5**.
+- **α = 0.6** → the paper's recommended accuracy/stability compromise (default in code).
+
+The scheme conserves mass (important for closed loops like the PBMR Brayton cycle that
+motivated the method).
+
+## Benchmarks to validate against (Section 5)
+
+1. **Steady isothermal/non-isothermal pipeline** — compare pressure ratio vs. outlet Mach
+   number to the ODE benchmark (eqs. 35–37). Implemented setup:
+   [`examples/pipeline_steady.py`](../examples/pipeline_steady.py). (Fig. 2/3.)
+2. **Sudden valve closure** in a 20 m pipe — pressure-wave amplitude/frequency vs. MOC and
+   Lax–Wendroff (Fig. 4–7).
+3. **Branching network** valve closures (Fig. 8–9).
+4. **Pressure-vessel blow-down** — slow transient where the implicit method is ~70–1000×
+   faster than explicit methods (Fig. 10).
+
+## Beyond pipes
+
+The momentum closure (step 3) is per-element, so **non-pipe components** — valves, pumps,
+compressors, turbines, orifices, heat exchangers — slot in by supplying their own
+`momentum_coeffs`. `components.Valve` is the first such template.

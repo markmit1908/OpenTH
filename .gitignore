@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+build/
+dist/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Test / coverage / type-check caches
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Native build artifacts (C/C++ acceleration, added later)
+native/build/
+*.so
+*.dylib
+*.dll
+*.o
+*.obj
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Local environment / secrets (LLM API keys etc.)
+.env
+.env.local
+
+# Simulation output
+*.h5
+results/
+out/

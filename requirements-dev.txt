@@ -1,0 +1,12 @@
+# Pinned-ish dev environment. Source of truth for deps is pyproject.toml;
+# this file just lets you bootstrap a venv quickly with:
+#   python -m venv .venv && source .venv/bin/activate
+#   pip install -e ".[dev,llm]"
+#
+# Listed here for convenience / non-editable installs:
+numpy>=1.24
+scipy>=1.10
+pytest>=7.4
+pytest-cov>=4.1
+ruff>=0.4
+mypy>=1.8

@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "flowcalc"
+version = "0.0.1"
+description = "Implicit pressure-correction (PCIM) solver for transient flow in fluid networks, after Greyvenstein (2002)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Mark Mitchell", email = "mark@valaratomics.com" }]
+keywords = ["flow network", "pressure correction", "PCIM", "transient flow", "pipe network", "thermal hydraulics"]
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",   # sparse linear solves for network pressure-correction systems
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "mypy>=1.8",
+]
+# Two-way LLM interface (kept optional so the core solver has no LLM dependency).
+llm = [
+    "anthropic>=0.40",
+]
+
+[project.scripts]
+flowcalc = "flowcalc.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/valaratomics/FlowCalc"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+flowcalc = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "NPY"]
+
+[tool.mypy]
+python_version = "3.10"
+packages = ["flowcalc"]
+warn_unused_ignores = true
+ignore_missing_imports = true
