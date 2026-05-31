@@ -129,6 +129,39 @@ model.add_pump(
 model.heat_source("mid", power=5e5)   # 5e5 W into this node (energy equation only)
 ```
 
+### Component-and-connection style (`th.Circuit`)
+
+`th.Model` names nodes by string. For networks and loops it can be tidier to build from
+**component objects** and join their `.inlet` / `.outlet` ports — that's `th.Circuit`:
+
+```python
+import openth as th
+
+c = th.Circuit(fluid=th.Fluid("helium"))
+pump = c.add(th.Pump(head_shutoff=120e3, curve=300.0))   # th.Pipe/Valve/Pump are
+hot  = c.add(th.Pipe(length=15, diameter=0.3, n_cells=6))  #   port-based components here
+cold = c.add(th.Pipe(length=15, diameter=0.3, n_cells=6))
+
+c.connect(pump.outlet, hot.inlet)        # joined ports become one network node
+c.connect(hot.outlet, cold.inlet)
+c.connect(cold.outlet, pump.inlet)       # a closed loop
+c.pressure_boundary(pump.inlet, p=300e3, T=300)   # a loop needs one reference pressure
+
+c.solve_steady_state()                   # also: c.transient(dt, t_end, record=...)
+print(c.flow(pump), c.pressure(hot.outlet))
+```
+
+A `Circuit` **compiles to a `FlowModel`** (each group of connected ports → one node; pipes
+still subdivide via `n_cells`), so the physics is identical — it is purely a friendlier way
+to wire things up. Results are read by object: `c.flow(component)`, `c.pressure(port)`,
+`c.temperature(port)`. For `c.transient(...)`, `record` entries are `(kind, target)` tuples,
+e.g. `record=(("flow", pump), ("p", hot.outlet))`. One working fluid per circuit (multi-fluid
+coupling is future work), and a closed loop needs one `pressure_boundary` as its reference.
+
+> `th.Circuit` is the connection-style API sketched in the
+> [vision statement](vision-statement.md); `th.Model` (this section's name-based builder) and
+> `th.Circuit` share the same solver and can be used interchangeably for the same physics.
+
 ## 4. Boundary conditions
 
 A network needs at least one `pressure_boundary` (otherwise the pressure level is undefined).

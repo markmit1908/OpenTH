@@ -78,6 +78,23 @@ model.steady_state()                       # or: model.run(dt, duration, record=
 print(model.pressure("inlet"), model.flow_through("inlet->outlet"))
 ```
 
+Or build it the **component/connection** way with `th.Circuit` — add components and join
+their `.inlet`/`.outlet` ports (nice for loops):
+
+```python
+import openth as th
+
+c = th.Circuit(fluid=th.Fluid("helium"))
+pump = c.add(th.Pump(head_shutoff=120e3, curve=300.0))
+hot  = c.add(th.Pipe(length=15, diameter=0.3, n_cells=6))
+cold = c.add(th.Pipe(length=15, diameter=0.3, n_cells=6))
+c.connect(pump.outlet, hot.inlet); c.connect(hot.outlet, cold.inlet); c.connect(cold.outlet, pump.inlet)
+c.pressure_boundary(pump.inlet, p=300e3, T=300)   # closed loop: pin a reference pressure
+
+c.solve_steady_state()
+print(c.flow(pump))
+```
+
 The paper's Section 5 cases live in `openth.benchmarks` (and the `openth benchmark` CLI).
 
 **Full instructions are in the [User Guide](docs/user-guide.md)** — building models, steady

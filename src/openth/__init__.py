@@ -14,15 +14,28 @@ The common entry points are re-exported here so you can ``import openth as th``:
     model.steady_state()
     print(model.pressure("inlet"))
 
-``th.Model`` is the high-level builder (alias of :class:`~openth.model.FlowModel`); add
+``th.Model`` is the name-based builder (alias of :class:`~openth.model.FlowModel`); add
 elements with ``add_pipe`` / ``add_valve`` / ``add_pump`` and set ``pressure_boundary`` /
-``mass_flow_boundary``. A port/connection-style API (``model.connect(a.outlet, b.inlet)``,
-as sketched in ``docs/vision-statement.md``) is future work — use the name-based ``add_*``
-methods for now. The optional LLM interface lives in ``openth.llm`` and is **not** imported
-here (it needs the ``[llm]`` extra).
+``mass_flow_boundary``.
+
+For the **component-and-connection** style (the vision's ``loop = th.Model()`` sketch), use
+:class:`~openth.circuit.Circuit` with port-based components::
+
+    c = th.Circuit(fluid=th.Fluid("helium"))
+    pump = c.add(th.Pump(head_shutoff=80e3, curve=200.0))
+    pipe = c.add(th.Pipe(length=50, diameter=0.5, n_cells=10))
+    c.connect(pump.outlet, pipe.inlet)
+    c.connect(pipe.outlet, pump.inlet)
+    c.pressure_boundary(pump.inlet, p=200e3, T=300)   # reference pressure
+    c.solve_steady_state()
+
+Here ``th.Pipe`` / ``th.Valve`` / ``th.Pump`` are the *port-based component specs* (the
+Element-level classes used internally live in ``openth.components``). The optional LLM
+interface lives in ``openth.llm`` and is **not** imported here (it needs the ``[llm]`` extra).
 """
 
-from .components import MassFlowBoundary, Pipe, PressureBoundary, Pump, Valve
+from .circuit import Circuit, Component, Pipe, Port, Pump, Valve
+from .components import MassFlowBoundary, PressureBoundary
 from .fluids import Fluid, FluidModel, IdealGas, Incompressible, air, helium, water
 from .model import FlowModel
 from .network import Element, Network, Node
@@ -34,13 +47,14 @@ __version__ = "0.0.1"
 Model = FlowModel
 
 __all__ = [
-    # high-level
-    "Model", "FlowModel",
+    # high-level builders
+    "Model", "FlowModel", "Circuit",
     # fluids
     "Fluid", "FluidModel", "IdealGas", "Incompressible", "helium", "air", "water",
-    # components
-    "Pipe", "Valve", "Pump", "PressureBoundary", "MassFlowBoundary",
-    # low-level topology / solver
+    # port-based components (for Circuit) + connection primitives
+    "Pipe", "Valve", "Pump", "Component", "Port",
+    # boundary helpers (low-level) + topology / solver
+    "PressureBoundary", "MassFlowBoundary",
     "Network", "Node", "Element", "PCIMSolver", "SolverConfig",
     "__version__",
 ]
