@@ -1,11 +1,11 @@
 """Tests for the paper's Section 5 benchmark builders/runners.
 
 Transient cases use short durations here to keep the suite fast (the qualitative behaviour
-appears within the first cycle); the default durations in :mod:`flowcalc.benchmarks`
+appears within the first cycle); the default durations in :mod:`openth.benchmarks`
 reproduce the paper's full runs.
 """
 
-from flowcalc import benchmarks
+from openth import benchmarks
 
 
 def test_registry_covers_all_four_sections():

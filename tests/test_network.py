@@ -2,9 +2,9 @@
 
 import pytest
 
-from flowcalc.components import Pipe
-from flowcalc.fluids import helium
-from flowcalc.network import Network, Node
+from openth.components import Pipe
+from openth.fluids import helium
+from openth.network import Network, Node
 
 
 def build_series_pipeline(n_cells: int = 3) -> Network:

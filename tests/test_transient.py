@@ -13,10 +13,10 @@ import math
 
 import pytest
 
-from flowcalc.components import MassFlowBoundary, Pipe, PressureBoundary, Valve
-from flowcalc.fluids import helium
-from flowcalc.network import Network, Node
-from flowcalc.solver import PCIMSolver, SolverConfig
+from openth.components import MassFlowBoundary, Pipe, PressureBoundary, Valve
+from openth.fluids import helium
+from openth.network import Network, Node
+from openth.solver import PCIMSolver, SolverConfig
 
 T = 300.0
 

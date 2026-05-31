@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from flowcalc.solver import thomas
+from openth.solver import thomas
 
 
 def test_thomas_matches_dense_solve():

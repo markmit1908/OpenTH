@@ -1,12 +1,12 @@
-"""Two-way interface between FlowCalc and an LLM.
+"""Two-way interface between OpenTH and an LLM.
 
 Goal (planned): let a model both *drive* the solver (build a network, run a case, read
 results back) and be *driven by* it (have the solver hand structured state to a model for
 explanation, design suggestions, or anomaly detection). The two directions:
 
-  * inbound  -- LLM -> FlowCalc: a natural-language or structured request is turned into a
-    network description (see :mod:`flowcalc.io.serialize`) and a simulation request.
-  * outbound -- FlowCalc -> LLM: solver state/results are summarised into a payload the
+  * inbound  -- LLM -> OpenTH: a natural-language or structured request is turned into a
+    network description (see :mod:`openth.io.serialize`) and a simulation request.
+  * outbound -- OpenTH -> LLM: solver state/results are summarised into a payload the
     model can reason over (tool results, design feedback).
 
 Kept dependency-light: the core solver must never import this module. The ``anthropic``
@@ -24,7 +24,7 @@ from ..network import Network
 
 @dataclass
 class ToolSpec:
-    """Description of a FlowCalc capability exposed to the model as a tool."""
+    """Description of a OpenTH capability exposed to the model as a tool."""
 
     name: str
     description: str
@@ -35,7 +35,7 @@ def network_tools() -> list[ToolSpec]:
     """Tool specs the model can call to build and query networks.
 
     TODO: define build_network / add_element / run_steady_state / run_transient /
-    get_results tools backed by :mod:`flowcalc.io` and :mod:`flowcalc.solver`.
+    get_results tools backed by :mod:`openth.io` and :mod:`openth.solver`.
     """
     raise NotImplementedError("network_tools not yet defined")
 

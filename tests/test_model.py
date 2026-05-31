@@ -4,8 +4,8 @@ import math
 
 import pytest
 
-from flowcalc.fluids import helium
-from flowcalc.model import FlowModel
+from openth.fluids import helium
+from openth.model import FlowModel
 
 
 def test_add_pipe_subdivides_into_cells():

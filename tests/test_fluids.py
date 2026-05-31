@@ -2,7 +2,7 @@
 
 import math
 
-from flowcalc.fluids import helium, water
+from openth.fluids import helium, water
 
 
 def test_ideal_gas_equation_of_state():

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-**OpenTH** (project renamed from "FlowCalc") aims to be an open-source, Python-first,
+**OpenTH** (renamed from the prototype "FlowCalc") aims to be an open-source, Python-first,
 reactor-grade 1D thermal-hydraulic system code — the OpenMC of reactor thermal hydraulics.
 See `docs/vision-statement.md` for the founding concept and roadmap.
 
@@ -13,11 +13,8 @@ of that vision): a solver implementing Greyvenstein's implicit **Pressure-Correc
 (PC / PCIM)** method (Int. J. Numer. Meth. Engng 2002; 53:1127–1143; PDF in `docs/papers/`,
 distilled in `docs/theory.md`). Python-first prototype; performance kernels are earmarked
 for later C/C++ reimplementation (`native/`), and a two-way LLM interface is planned
-(`src/flowcalc/llm/`). End-user docs (the `FlowModel` API, running the benchmarks) are in
-`docs/user-guide.md`.
-
-> The Python package still imports as `flowcalc`; a rename to `openth` is planned but not
-> yet done — keep using `flowcalc` in code until then.
+(`src/openth/llm/`). The Python package imports as `openth`; end-user docs (the `FlowModel`
+API, running the benchmarks) are in `docs/user-guide.md`.
 
 **Project status.** The **steady-state and transient solvers are implemented and
 validated**, including **non-isothermal flow** (energy-equation coupling). Steady matches
@@ -39,7 +36,7 @@ pip install -e ".[dev,llm]"
 python -m pytest                        # all tests (prefer `python -m pytest`, see note)
 python -m pytest tests/test_steady.py   # one file
 python -m pytest tests/test_steady.py::test_incompressible_series_exact   # one test
-python -m pytest --cov=flowcalc         # with coverage
+python -m pytest --cov=openth         # with coverage
 
 ruff check . && ruff format .           # lint + format
 mypy                                    # type-check (config in pyproject.toml)
@@ -48,13 +45,13 @@ python examples/pipeline_steady.py      # paper §5.1 steady benchmark: PCIM vs 
 python examples/blowdown_transient.py   # paper §5.4 transient blow-down vs quasi-steady
 python examples/heated_pipe.py          # non-isothermal: expansion cooling vs heat addition
 python examples/pump_loop.py            # pump pushing flow uphill + compressor temperature rise
-flowcalc benchmark                      # list the paper's Section 5 test cases
-flowcalc benchmark blowdown             # generate + run one of them
-flowcalc --version                      # console entry point (flowcalc.cli)
+openth benchmark                      # list the paper's Section 5 test cases
+openth benchmark blowdown             # generate + run one of them
+openth --version                      # console entry point (openth.cli)
 ```
 
 A repo-root `conftest.py` puts `src/` on the path so `python -m pytest` works even without
-the editable install. If a bare `import flowcalc` / `flowcalc`/`pytest` console script
+the editable install. If a bare `import openth` / `openth`/`pytest` console script
 can't find the package (editable `.pth` not picked up), prefix with `PYTHONPATH=src`
 (and `MYPYPATH=src` for mypy) or re-run `pip install -e .`.
 
@@ -88,7 +85,7 @@ to the paper's equations — read it before touching the numerics):
   subdivides into finite-volume cells and assigns control volumes, callable (time-varying)
   pressure boundaries, and `steady_state()` / `run(dt, duration, record=...)`.
 - **`benchmarks.py`** — the paper's Section 5 cases built on `FlowModel` (`build_*`/`run_*`
-  + a `BENCHMARKS` registry); exposed via `flowcalc benchmark`.
+  + a `BENCHMARKS` registry); exposed via `openth benchmark`.
 - **`io/`** — declarative dict/JSON (de)serialization; also the LLM exchange payload.
 - **`llm/`** — optional two-way LLM interface. **The core must never import this**; the
   `anthropic` SDK lives behind the `[llm]` extra.

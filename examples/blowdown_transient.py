@@ -16,10 +16,10 @@ that as a check, comparing the transient flow against a frozen-pressure steady s
 
 import math
 
-from flowcalc.components import Pipe, PressureBoundary
-from flowcalc.fluids import helium
-from flowcalc.network import Network, Node
-from flowcalc.solver import PCIMSolver, SolverConfig
+from openth.components import Pipe, PressureBoundary
+from openth.fluids import helium
+from openth.network import Network, Node
+from openth.solver import PCIMSolver, SolverConfig
 
 T = 300.0
 P2 = 650e3

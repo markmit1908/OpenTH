@@ -11,10 +11,10 @@ Two demonstrations of the Pump component:
 
 import math
 
-from flowcalc.components import Pipe, PressureBoundary, Pump
-from flowcalc.fluids import helium, water
-from flowcalc.network import Network, Node
-from flowcalc.solver import PCIMSolver, SolverConfig
+from openth.components import Pipe, PressureBoundary, Pump
+from openth.fluids import helium, water
+from openth.network import Network, Node
+from openth.solver import PCIMSolver, SolverConfig
 
 
 def pump_uphill() -> None:

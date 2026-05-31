@@ -1,9 +1,9 @@
-"""The paper's Section 5 test cases, built on :class:`~flowcalc.model.FlowModel`.
+"""The paper's Section 5 test cases, built on :class:`~openth.model.FlowModel`.
 
 Each case has a ``build_*`` function (returns a ready-to-solve model) and a ``run_*``
 function (solves it and returns a concise result summary). :data:`BENCHMARKS` maps short
 names to ``(description, run_fn)`` and :func:`run` dispatches by name -- used by the
-``flowcalc benchmark`` CLI command.
+``openth benchmark`` CLI command.
 
 References are to G. P. Greyvenstein, Int. J. Numer. Meth. Engng 2002; 53:1127-1143.
 """

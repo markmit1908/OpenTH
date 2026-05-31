@@ -30,9 +30,8 @@ foundation of the vision above. It is built on Greyvenstein's implicit **Pressur
 and energy equations, handling **liquid and gas**, **isothermal and non-isothermal**, and **fast and
 slow transients**, extensible to non-pipe components (valves, pumps/compressors, …).
 
-> The Python package currently imports as `flowcalc` (the prototype name); a rename to `openth`
-> is planned. Reference: G. P. Greyvenstein, *"An implicit method for the analysis of transient
-> flows in pipe networks"*, Int. J. Numer. Meth. Engng 2002; 53:1127–1143
+> Reference: G. P. Greyvenstein, *"An implicit method for the analysis of transient flows in
+> pipe networks"*, Int. J. Numer. Meth. Engng 2002; 53:1127–1143
 > (see [`docs/papers/`](docs/papers/), [`docs/theory.md`](docs/theory.md)).
 
 ## Status
@@ -47,7 +46,7 @@ up to ~Mach 0.74 (the isothermal choking limit). Components so far: pipes, valve
 pumps/compressors (`examples/pump_loop.py`); more are next.
 Python-first for clarity and rapid iteration; performance-critical kernels will later be reimplemented
 in C/C++ behind the same interfaces — see [`native/`](native/). A two-way LLM interface (build/query
-networks in natural language) is planned in [`src/flowcalc/llm/`](src/flowcalc/llm/).
+networks in natural language) is planned in [`src/openth/llm/`](src/openth/llm/).
 
 ## Quick start
 
@@ -57,8 +56,8 @@ source .venv/bin/activate
 pip install -e ".[dev,llm]"
 
 pytest                              # run tests
-flowcalc benchmark                  # list the paper's Section 5 test cases
-flowcalc benchmark steady_pipeline  # generate + run one
+openth benchmark                  # list the paper's Section 5 test cases
+openth benchmark steady_pipeline  # generate + run one
 ```
 
 > Requires Python ≥ 3.10. (The system Python on this machine is 3.9.6 — create a venv with a newer
@@ -67,8 +66,8 @@ flowcalc benchmark steady_pipeline  # generate + run one
 Build a model with the high-level `FlowModel` API:
 
 ```python
-from flowcalc.model import FlowModel
-from flowcalc.fluids import helium
+from openth.model import FlowModel
+from openth.fluids import helium
 
 model = FlowModel(fluid=helium())
 model.add_pipe("inlet", "outlet", length=100, diameter=0.5, n_cells=20)  # 20 FV cells
@@ -79,7 +78,7 @@ model.steady_state()
 print(model.pressure("inlet"), model.flow_through("inlet->outlet"))
 ```
 
-The paper's Section 5 cases live in `flowcalc.benchmarks` (and the `flowcalc benchmark` CLI).
+The paper's Section 5 cases live in `openth.benchmarks` (and the `openth benchmark` CLI).
 
 **Full instructions are in the [User Guide](docs/user-guide.md)** — building models, steady
 vs. transient runs, fluids, the energy equation, and generating/running the paper's tests.
@@ -88,14 +87,14 @@ vs. transient runs, fluids, the energy equation, and generating/running the pape
 
 | Path | Purpose |
 |------|---------|
-| `src/flowcalc/network/` | Topology: `Node` (control volume / cell centre) + `Element` (face / branch) + `Network` graph |
-| `src/flowcalc/components/` | Concrete elements: `Pipe`, `Valve`, `Pump`/compressor, boundaries; non-pipe components added here |
-| `src/flowcalc/fluids/` | Equations of state / fluid property models (`IdealGas`, incompressible) |
-| `src/flowcalc/solver/` | The PCIM solver, time integration, linear solves |
-| `src/flowcalc/model.py` | `FlowModel` — high-level model-building facade |
-| `src/flowcalc/benchmarks.py` | The paper's Section 5 test cases (`flowcalc benchmark`) |
-| `src/flowcalc/io/` | Network (de)serialization |
-| `src/flowcalc/llm/` | Two-way LLM interface (optional) |
+| `src/openth/network/` | Topology: `Node` (control volume / cell centre) + `Element` (face / branch) + `Network` graph |
+| `src/openth/components/` | Concrete elements: `Pipe`, `Valve`, `Pump`/compressor, boundaries; non-pipe components added here |
+| `src/openth/fluids/` | Equations of state / fluid property models (`IdealGas`, incompressible) |
+| `src/openth/solver/` | The PCIM solver, time integration, linear solves |
+| `src/openth/model.py` | `FlowModel` — high-level model-building facade |
+| `src/openth/benchmarks.py` | The paper's Section 5 test cases (`openth benchmark`) |
+| `src/openth/io/` | Network (de)serialization |
+| `src/openth/llm/` | Two-way LLM interface (optional) |
 | `examples/` | Runnable cases, including paper benchmarks |
 | `docs/` | Theory notes and the source papers |
 | `native/` | C/C++ acceleration (stub for now) |

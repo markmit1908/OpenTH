@@ -2,7 +2,7 @@
 
 This directory is reserved for performance-critical kernels reimplemented in C/C++ and
 exposed to Python. Nothing is built here yet; the pure-Python implementation in
-`src/flowcalc/` is the reference.
+`src/openth/` is the reference.
 
 ## What will live here
 
@@ -10,7 +10,7 @@ The hot paths in the PCIM solver, behind the *same* Python interfaces so the swi
 transparent:
 
 - **Linear solves** — the tridiagonal (Thomas) and sparse pressure-correction / energy
-  systems (`flowcalc.solver.linear`).
+  systems (`openth.solver.linear`).
 - **Coefficient assembly** — per-element momentum link coefficients (eqs. 21-22) and the
   continuity/energy coefficients (eqs. 24-34), looped over every face/cell each iteration.
 

@@ -12,10 +12,10 @@ This is the machinery behind the paper's non-isothermal cases (Fig. 3, 6, 7).
 
 import math
 
-from flowcalc.components import Pipe, PressureBoundary
-from flowcalc.fluids import helium
-from flowcalc.network import Network, Node
-from flowcalc.solver import PCIMSolver, SolverConfig
+from openth.components import Pipe, PressureBoundary
+from openth.fluids import helium
+from openth.network import Network, Node
+from openth.solver import PCIMSolver, SolverConfig
 
 T_IN, P_IN, P_OUT = 300.0, 230e3, 200e3
 N, DX, D = 5, 5.0, 0.5

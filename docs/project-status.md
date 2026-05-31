@@ -1,27 +1,27 @@
 # Project status & scaffold summary
 
-FlowCalc status snapshot (started 2026-05-30). Living document — update as the solver
+OpenTH status snapshot (started 2026-05-30). Living document — update as the solver
 evolves. The steady, transient, and energy (non-isothermal) solves are now implemented and
 validated; the layout/decisions below trace how it got here.
 
 ## What was built
 
-A Python-first implementation of **FlowCalc**, structured directly around Greyvenstein's
+A Python-first implementation of **OpenTH**, structured directly around Greyvenstein's
 PC/PCIM method (the segregated, SIMPLE-style implicit pressure-correction scheme described
 in [`papers/`](papers/Greyvenstein-2001-implicit-transient-pipe-networks.pdf), distilled in
 [`theory.md`](theory.md)).
 
 ```
-FlowCalc/
+OpenTH/
 ├── CLAUDE.md              ← guidance for future Claude Code sessions
 ├── README.md  LICENSE(MIT)  pyproject.toml  .gitignore
-├── src/flowcalc/
+├── src/openth/
 │   ├── network/      Node (control volume) · Element (face) · Network graph
 │   ├── components/   Pipe · Valve · Pump/compressor · pressure/mass-flow boundaries
 │   ├── fluids/       FluidModel ABC · IdealGas (p=sρRT, helium) · Incompressible
 │   ├── solver/       PCIMSolver · SolverConfig (α∈[0.5,1]) · Thomas + sparse
 │   ├── model.py      FlowModel — high-level builder/facade
-│   ├── benchmarks.py paper Section 5 test cases (build_* / run_*, `flowcalc benchmark`)
+│   ├── benchmarks.py paper Section 5 test cases (build_* / run_*, `openth benchmark`)
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
@@ -57,7 +57,7 @@ to come) uniformly, exactly as the paper describes.
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
   `examples/heated_pipe.py` shows expansion cooling and heat addition
-- `flowcalc --version` works
+- `openth --version` works
 
 ## Steady + transient + energy core — done ✅
 
@@ -81,15 +81,15 @@ upwind convection on the converged flow field, alternating with the pressure loo
 
 ## User model & benchmarks — done ✅
 
-`flowcalc.model.FlowModel` is the high-level facade: name-based nodes (auto-created),
+`openth.model.FlowModel` is the high-level facade: name-based nodes (auto-created),
 `add_pipe(..., n_cells=N)` that subdivides a pipe into N finite-volume cells and assigns
 each node its control volume, `add_valve`/`add_pump`, callable (time-varying) pressure
 boundaries, and `steady_state()` / `run(dt, duration, record=...)`. It reproduces the
 hand-built pipeline result to ~0%.
 
-`flowcalc.benchmarks` builds and runs the paper's four Section 5 cases on `FlowModel`
+`openth.benchmarks` builds and runs the paper's four Section 5 cases on `FlowModel`
 (steady pipeline, valve closure / water hammer, branching-network valve closures,
-pressure-vessel blow-down), exposed via `flowcalc benchmark [name]`.
+pressure-vessel blow-down), exposed via `openth benchmark [name]`.
 
 ## Still the real work
 

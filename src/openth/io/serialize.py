@@ -1,8 +1,8 @@
 """(De)serialization of networks to/from plain dicts (JSON/YAML-friendly).
 
 A declarative network description is also the natural payload exchanged with the LLM
-interface (see :mod:`flowcalc.llm`): the model emits a dict, this module turns it into a
-:class:`~flowcalc.network.Network`, and results serialize back the same way.
+interface (see :mod:`openth.llm`): the model emits a dict, this module turns it into a
+:class:`~openth.network.Network`, and results serialize back the same way.
 
 Schema (v0, subject to change):
 

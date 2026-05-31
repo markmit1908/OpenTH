@@ -1,6 +1,6 @@
-# FlowCalc User Guide
+# OpenTH User Guide
 
-FlowCalc solves **fluid flow networks** — steady and transient, liquid and gas, isothermal
+OpenTH solves **fluid flow networks** — steady and transient, liquid and gas, isothermal
 and non-isothermal — using Greyvenstein's implicit Pressure-Correction (PCIM) method. This
 guide covers building and running models through the high-level `FlowModel` API, and
 generating/running the benchmark cases from the source paper.
@@ -38,13 +38,13 @@ pip install -e ".[dev]"          # add ",llm" for the optional LLM interface
 Quick check:
 
 ```bash
-flowcalc benchmark               # lists the paper's test cases
+openth benchmark               # lists the paper's test cases
 python -m pytest                 # runs the test suite
 ```
 
 ## 2. Core concepts
 
-FlowCalc uses a finite-volume discretization (the paper's Fig. 1):
+OpenTH uses a finite-volume discretization (the paper's Fig. 1):
 
 - **Nodes** are control-volume cell centres. They carry the scalar state — total pressure
   `p₀`, density `ρ`, temperature `T`, total enthalpy `h₀` — and a control volume.
@@ -62,12 +62,12 @@ this for you, creating the internal nodes and assigning control volumes.
 
 ## 3. Building a model
 
-Everything goes through `flowcalc.model.FlowModel`. Nodes are created automatically the
+Everything goes through `openth.model.FlowModel`. Nodes are created automatically the
 first time you name them.
 
 ```python
-from flowcalc.model import FlowModel
-from flowcalc.fluids import helium
+from openth.model import FlowModel
+from openth.fluids import helium
 
 model = FlowModel(fluid=helium())          # one working fluid per model
 ```
@@ -206,7 +206,7 @@ endpoints and junctions are usually what you want.
 ## 7. Fluids
 
 ```python
-from flowcalc.fluids import helium, air, water, IdealGas, Incompressible
+from openth.fluids import helium, air, water, IdealGas, Incompressible
 
 helium()   # ideal gas, R=2077, gamma=1.667
 air()      # ideal gas, R=287, gamma=1.4
@@ -240,7 +240,7 @@ Inflow boundaries should fix temperature (`pressure_boundary` does; for a
 
 ## 9. The paper's test models (benchmarks)
 
-`flowcalc.benchmarks` generates and runs the four Section 5 cases from Greyvenstein (2002).
+`openth.benchmarks` generates and runs the four Section 5 cases from Greyvenstein (2002).
 Each has a `build_*` function (returns a ready-to-solve `FlowModel`) and a `run_*` function
 (solves it and returns a result summary), collected in the `BENCHMARKS` registry.
 
@@ -254,15 +254,15 @@ Each has a `build_*` function (returns a ready-to-solve `FlowModel`) and a `run_
 ### From the command line
 
 ```bash
-flowcalc benchmark                 # list all four
-flowcalc benchmark steady_pipeline # generate + run one, print the summary
-flowcalc benchmark blowdown
+openth benchmark                 # list all four
+openth benchmark steady_pipeline # generate + run one, print the summary
+openth benchmark blowdown
 ```
 
 ### From Python
 
 ```python
-from flowcalc import benchmarks
+from openth import benchmarks
 
 # Run by name (uses the paper's parameters):
 summary = benchmarks.run("valve_closure")
@@ -289,8 +289,8 @@ Reproducing the Section 5.4 blow-down with the high-level API:
 
 ```python
 import math
-from flowcalc.model import FlowModel
-from flowcalc.fluids import helium
+from openth.model import FlowModel
+from openth.fluids import helium
 
 model = FlowModel(fluid=helium(), default_temperature=300.0)
 

@@ -10,10 +10,10 @@ import math
 
 import pytest
 
-from flowcalc.components import MassFlowBoundary, Pipe, PressureBoundary
-from flowcalc.fluids import helium, water
-from flowcalc.network import Network, Node
-from flowcalc.solver import PCIMSolver, SolverConfig
+from openth.components import MassFlowBoundary, Pipe, PressureBoundary
+from openth.fluids import helium, water
+from openth.network import Network, Node
+from openth.solver import PCIMSolver, SolverConfig
 
 
 def pipe_resistance(fluid, length, diameter, f, p, T):

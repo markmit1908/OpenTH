@@ -1,6 +1,6 @@
 """High-level model-building facade.
 
-`FlowModel` wraps the low-level :class:`~flowcalc.network.Network` / `Element` / boundary
+`FlowModel` wraps the low-level :class:`~openth.network.Network` / `Element` / boundary
 objects in a fluent, name-based API so a user can describe a network in a few lines instead
 of wiring nodes and elements by hand:
 

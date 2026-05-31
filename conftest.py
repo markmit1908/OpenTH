@@ -3,7 +3,7 @@
 A normal ``pip install -e .`` puts ``src`` on the path via the package's editable record.
 This shim is a belt-and-braces fallback so the test suite (and ``python conftest.py``-style
 ad-hoc runs) work even when the editable install isn't present. It is intentionally inert
-when ``flowcalc`` is already importable.
+when ``openth`` is already importable.
 """
 
 import sys

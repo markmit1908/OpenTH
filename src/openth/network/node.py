@@ -2,7 +2,7 @@
 
 In Greyvenstein's scheme (Fig. 1), the *cell-centred* quantities are pressure, density
 and temperature; volumetric flow rate and velocity live on the *faces* (see
-:mod:`flowcalc.network.element`). A :class:`Node` therefore carries the scalar state and
+:mod:`openth.network.element`). A :class:`Node` therefore carries the scalar state and
 the control-volume geometry, and is where the **continuity** (eq. 13) and **energy**
 (eq. 15) equations are integrated.
 """
@@ -17,7 +17,7 @@ class NodeState:
     """Primary unknowns stored at a node, at the *current* time/iteration level.
 
     The solver also keeps the previous-time-level values (superscript ``o`` in the
-    paper); see :class:`flowcalc.solver.base.SolverState`.
+    paper); see :class:`openth.solver.base.SolverState`.
     """
 
     p0: float = 0.0      # total pressure [Pa]      (primary continuity unknown)

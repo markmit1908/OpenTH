@@ -1,6 +1,6 @@
 # Theory: the implicit Pressure-Correction (PC / PCIM) method
 
-Working notes mapping Greyvenstein (2002) onto the FlowCalc code. The source paper is in
+Working notes mapping Greyvenstein (2002) onto the OpenTH code. The source paper is in
 [`papers/`](papers/Greyvenstein-2001-implicit-transient-pipe-networks.pdf). Equation
 numbers below refer to that paper.
 
