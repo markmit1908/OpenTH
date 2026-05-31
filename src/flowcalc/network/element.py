@@ -78,6 +78,19 @@ class Element(ABC):
         such as valves contribute no kinetic energy); :class:`Pipe` overrides it."""
         return math.inf
 
+    def head(self) -> float:
+        """Pressure rise [Pa] this element adds in its forward (upstream -> downstream)
+        direction, e.g. a pump or compressor. Added to the momentum driving pressure, so it
+        pushes flow against an adverse gradient. Zero by default. The flow-dependent part of
+        a pump curve is carried by ``resistance``; this is the shutoff (zero-flow) head."""
+        return 0.0
+
+    def work_per_mass(self, mdot: float, rho: float) -> float:
+        """Specific work [J/kg] added to the forward through-flow, raising total enthalpy
+        across a pump/compressor (the temperature rise of a compressor). Zero by default;
+        only the energy equation uses it."""
+        return 0.0
+
     def set_time(self, t: float) -> None:  # noqa: B027  (intentional optional no-op hook)
         """Hook for time-dependent elements (e.g. a closing valve). No-op by default."""
 

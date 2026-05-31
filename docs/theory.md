@@ -112,6 +112,10 @@ and genuine transonic/choked handling is future work.
 
 ## Beyond pipes
 
-The momentum closure (step 3) is per-element, so **non-pipe components** — valves, pumps,
-compressors, turbines, orifices, heat exchangers — slot in by supplying their own
-`resistance` / `convective_dp` / `inertance`. `components.Valve` is the first such template.
+The momentum closure (step 3) is per-element, so **non-pipe components** slot in by
+supplying their own closure hooks: `resistance` / `convective_dp` / `inertance` /
+`flow_area`, plus `head` (a pressure rise, for pumps/compressors) and `work_per_mass` (shaft
+work added to the energy equation). Implemented so far: `components.Valve` (variable
+resistance) and `components.Pump` (pump/compressor — quadratic head curve `head_shutoff −
+curve·ṁ²`, with compressor work raising total enthalpy). Turbines (negative head/work),
+orifices (pure resistance) and heat exchangers follow the same pattern.

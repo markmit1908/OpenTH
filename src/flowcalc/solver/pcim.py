@@ -263,7 +263,8 @@ class PCIMSolver(Solver):
                 e.mdot = 0.0
                 continue
             conv = e.convective_dp(rho_up, rho_down, e.mdot)
-            drive = (e.upstream.state.p0 - e.downstream.state.p0) - conv
+            # e.head() is a pump/compressor pressure rise assisting forward flow.
+            drive = (e.upstream.state.p0 - e.downstream.state.p0) + e.head() - conv
             target = math.copysign(math.sqrt(abs(drive) / k), drive)
             e.mdot += relax * (target - e.mdot)
 
@@ -280,7 +281,7 @@ class PCIMSolver(Solver):
             a = e.inertance() / dt          # inertia coefficient
             quad = alpha * k                # quadratic friction coefficient
             conv = e.convective_dp(rho_up, rho_down, e.mdot)
-            dp = e.upstream.state.p0 - e.downstream.state.p0
+            dp = e.upstream.state.p0 - e.downstream.state.p0 + e.head()  # + pump/compressor
             # a*mdot + quad*mdot|mdot| = a*mdot_o + alpha*dp - alpha*conv - resid_o
             rhs = a * mdot_o[e.id] + alpha * dp - alpha * conv - resid_o[e.id]
             e.mdot = self._solve_momentum(a, quad, rhs)
@@ -316,7 +317,7 @@ class PCIMSolver(Solver):
         else:
             friction = k * m_o * abs(m_o)
             conv = e.convective_dp(rho_up, rho_down, m_o)
-        dp_o = e.upstream.state.p0 - e.downstream.state.p0
+        dp_o = e.upstream.state.p0 - e.downstream.state.p0 + e.head()  # + pump/compressor
         return (1.0 - alpha) * (friction + conv - dp_o)
 
     @staticmethod
@@ -397,10 +398,16 @@ class PCIMSolver(Solver):
                         rows.append(i)
                         cols.append(index[other.id])
                         data.append(-k_in)
+                    # Pump/compressor work added to the fluid arriving through this face.
+                    r += k_in * e.work_per_mass(e.mdot, self._density(other))
                 if not steady:
-                    assert mdot_o is not None and h0_o is not None
+                    assert mdot_o is not None and h0_o is not None and rho_o is not None
                     out_o = sign * mdot_o[e.id]
-                    old_flux += out_o * (h0_o[node.id] if out_o >= 0.0 else h0_o[other.id])
+                    if out_o >= 0.0:
+                        old_flux += out_o * h0_o[node.id]
+                    else:
+                        w_o = e.work_per_mass(mdot_o[e.id], rho_o[other.id])
+                        old_flux += out_o * (h0_o[other.id] + w_o)
             if not steady:
                 r -= (1.0 - alpha) * old_flux
             if kp < self._MDOT_FLOOR * self._mass_scale():

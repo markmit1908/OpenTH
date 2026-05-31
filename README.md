@@ -21,7 +21,8 @@ to ~0% error (`examples/pipeline_steady.py`); the transient marches to that stea
 mass, and captures water-hammer and the blow-down decay (`examples/blowdown_transient.py`); the energy
 equation conserves total enthalpy in adiabatic flow and matches `Q/ṁ` for heat addition
 (`examples/heated_pipe.py`, `tests/`). A compressible pressure-correction term keeps the solve robust
-up to ~Mach 0.74 (the isothermal choking limit); more component models are next.
+up to ~Mach 0.74 (the isothermal choking limit). Components so far: pipes, valves, and
+pumps/compressors (`examples/pump_loop.py`); more are next.
 Python-first for clarity and rapid iteration; performance-critical kernels will later be reimplemented
 in C/C++ behind the same interfaces — see [`native/`](native/). A two-way LLM interface (build/query
 networks in natural language) is planned in [`src/flowcalc/llm/`](src/flowcalc/llm/).
@@ -45,7 +46,7 @@ python examples/pipeline_steady.py
 | Path | Purpose |
 |------|---------|
 | `src/flowcalc/network/` | Topology: `Node` (control volume / cell centre) + `Element` (face / branch) + `Network` graph |
-| `src/flowcalc/components/` | Concrete elements: `Pipe`, boundaries, `Valve`; non-pipe components added here |
+| `src/flowcalc/components/` | Concrete elements: `Pipe`, `Valve`, `Pump`/compressor, boundaries; non-pipe components added here |
 | `src/flowcalc/fluids/` | Equations of state / fluid property models (`IdealGas`, incompressible) |
 | `src/flowcalc/solver/` | The PCIM solver, time integration, linear solves |
 | `src/flowcalc/io/` | Network (de)serialization |

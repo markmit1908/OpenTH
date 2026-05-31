@@ -17,14 +17,14 @@ FlowCalc/
 ├── README.md  LICENSE(MIT)  pyproject.toml  .gitignore
 ├── src/flowcalc/
 │   ├── network/      Node (control volume) · Element (face) · Network graph
-│   ├── components/   Pipe · Valve · pressure/mass-flow boundaries
+│   ├── components/   Pipe · Valve · Pump/compressor · pressure/mass-flow boundaries
 │   ├── fluids/       FluidModel ABC · IdealGas (p=sρRT, helium) · Incompressible
 │   ├── solver/       PCIMSolver · SolverConfig (α∈[0.5,1]) · Thomas + sparse
 │   ├── io/           declarative dict/JSON (de)serialization
 │   ├── llm/          two-way LLM interface (optional [llm] extra; core never imports it)
 │   └── cli.py
-├── tests/            fluids · network · linear · steady · transient · energy  (23 passing)
-├── examples/         pipeline_steady · blowdown_transient · heated_pipe (paper §5.1/5.4 + non-isothermal)
+├── tests/            fluids · network · linear · steady · transient · energy · pump  (26 passing)
+├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
 │   ├── theory.md     maps every module to the paper's equations
@@ -44,9 +44,10 @@ to come) uniformly, exactly as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **23 passed** (fluid EOS, topology, Thomas solver, steady — incl.
+- `python -m pytest` → **26 passed** (fluid EOS, topology, Thomas solver, steady — incl.
   high-Mach pressure-driven — transient — march-to-steady, mass conservation, water-hammer
-  — and energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency)
+  — energy: adiabatic h₀ conservation, heat addition, transient↔steady consistency — and
+  the pump/compressor: uphill flow, operating point, compressor temperature rise)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
 - `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
   Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
@@ -77,7 +78,8 @@ upwind convection on the converged flow field, alternating with the pressure loo
 
 - **Transonic / near-choking robustness**: solid to ~Mach 0.74 (isothermal choking limit),
   but near choking the solve is mesh-sensitive and can collapse to a false zero-flow state.
-- Non-pipe component closures beyond `Valve` (pump/compressor/turbine/orifice/heat-exchanger).
+- More non-pipe components (`Pipe`/`Valve`/`Pump` exist; turbine = negative-head pump,
+  orifice = pure resistance, heat exchanger to come) via the closure hooks.
 - Wall heat transfer (temperature-dependent `q̇`); `Node.heat_source` is currently constant.
 
 Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) stress transcribing
@@ -96,6 +98,6 @@ pip install -e ".[dev,llm]"
 
 ## Suggested next step
 
-Add the next non-pipe component model (pump or compressor) via the
-`resistance`/`convective_dp`/`inertance` interface, and/or harden the near-choking regime
-(choked-flow boundary treatment) to remove the mesh-sensitive zero-flow collapse.
+Add a turbine (negative-head `Pump`) and an orifice (pure-resistance `Pipe`) via the same
+closure hooks, and/or harden the near-choking regime (choked-flow boundary treatment) to
+remove the mesh-sensitive zero-flow collapse.

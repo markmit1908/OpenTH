@@ -6,6 +6,7 @@ turbines, orifices and heat exchangers to come) each override the momentum closu
 
 from .boundary import MassFlowBoundary, PressureBoundary
 from .pipe import Pipe
+from .pump import Pump
 from .valve import Valve
 
-__all__ = ["MassFlowBoundary", "PressureBoundary", "Pipe", "Valve"]
+__all__ = ["MassFlowBoundary", "PressureBoundary", "Pipe", "Pump", "Valve"]

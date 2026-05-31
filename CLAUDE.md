@@ -38,6 +38,7 @@ mypy                                    # type-check (config in pyproject.toml)
 python examples/pipeline_steady.py      # paper §5.1 steady benchmark: PCIM vs analytical
 python examples/blowdown_transient.py   # paper §5.4 transient blow-down vs quasi-steady
 python examples/heated_pipe.py          # non-isothermal: expansion cooling vs heat addition
+python examples/pump_loop.py            # pump pushing flow uphill + compressor temperature rise
 flowcalc --version                      # console entry point (flowcalc.cli)
 ```
 
@@ -56,8 +57,10 @@ to the paper's equations — read it before touching the numerics):
   **face / branch** carrying mass flow `mdot`. `Network` owns the graph. The
   cell-centre-vs-face split is the paper's discretization (Fig. 1) and is load-bearing.
 - **`components/`** — concrete `Element`s. `Pipe` is canonical; non-pipe components
-  (`Valve`, and future pump/compressor/turbine/orifice/heat-exchanger) plug in by
-  overriding `resistance` / `convective_dp` / `inertance` / `flow_area`. `PressureBoundary`
+  (`Valve`, `Pump`/compressor, and future turbine/orifice/heat-exchanger) plug in by
+  overriding the closure hooks: `resistance` / `convective_dp` / `inertance` / `flow_area`,
+  plus `head` (a pump/compressor pressure rise added to the momentum drive) and
+  `work_per_mass` (shaft work raising total enthalpy in the energy solve). `PressureBoundary`
   pins a node's pressure (and temperature) and marks it `is_boundary` (removed from
   unknowns); `MassFlowBoundary` instead sets the node's `mass_source` (and optionally a
   fixed inlet `T`) and leaves the pressure an unknown.
@@ -76,11 +79,12 @@ to the paper's equations — read it before touching the numerics):
 ### The central abstraction
 
 Each element exposes its momentum closure as **`resistance(rho_face) -> K`** (friction, so
-that `Δp = K·mdot·|mdot|`) plus an optional **`convective_dp(...)`** (momentum-flux term).
-The solver linearizes friction into the pressure-correction conductance `d = 1/(2K|mdot|)`
-(paper eq. 20). This pair of methods is the single interface that lets the same
-pressure-correction machinery handle pipes and arbitrary non-pipe components uniformly —
-preserve it when adding components. (Carrying `convective_dp` explicitly is equivalent to
+that `Δp = K·mdot·|mdot|`) plus optional **`convective_dp(...)`** (momentum-flux term) and
+**`head()`** (a pump/compressor pressure rise added to the momentum drive). The solver
+linearizes friction into the pressure-correction conductance `d = 1/(2K|mdot|)` (paper
+eq. 20); `head` is a constant source so it doesn't change `d`. These hooks are the single
+interface that lets the same pressure-correction machinery handle pipes and arbitrary
+non-pipe components uniformly — preserve them when adding components. (Carrying `convective_dp` explicitly is equivalent to
 the paper's elimination of convective acceleration via total pressure; it's what makes the
 high-Mach pressure ratio correct — see `docs/theory.md`.)
 
@@ -91,8 +95,10 @@ steady is the dt→∞ limit of Section 4, transient adds the storage/inertia te
 `alpha` time-weighting), and the **energy equation** (eqs. 29-34) is coupled when
 `SolverConfig.solve_energy` is set. All three are validated (`tests/`). The remaining work:
 
-- **More non-pipe components** (`Valve`/`Pipe` exist; pump/compressor/turbine/orifice/
-  heat-exchanger to come), each via `resistance`/`convective_dp`/`inertance`/`flow_area`.
+- **More non-pipe components** (`Pipe`/`Valve`/`Pump` exist; turbine/orifice/heat-exchanger
+  to come), each via the closure hooks (`resistance`/`convective_dp`/`inertance`/`flow_area`/
+  `head`/`work_per_mass`). A turbine is a `Pump` with negative head / negative work; an
+  orifice is a `Pipe`-like pure resistance.
 - Wall heat transfer (temperature-dependent `q̇`); currently `Node.heat_source` is constant.
 - **Transonic / near-choking robustness**: the solver is solid up to ~Mach 0.74 (the
   isothermal choking limit), but near choking it is mesh-sensitive — fine meshes can still
