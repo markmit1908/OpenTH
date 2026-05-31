@@ -66,27 +66,45 @@ class PCIMSolver(Solver):
             # the flows are fixed by the boundary pressures; just converge them.
             return self._converge_flows_only(self._update_flows_steady, time=0.0)
 
-        residual = math.inf
-        scale = self._mass_scale()
+        if not cfg.solve_energy:
+            residual, iters = self._pressure_loop_steady(unknowns, index, n)
+            return StepResult(time=0.0, iterations=iters, residual=residual,
+                              converged=residual < cfg.tol)
 
+        # Non-isothermal: alternate a full pressure/flow solve with one energy update,
+        # until both the mass imbalance and the temperature change are below tolerance.
+        # Energy is solved on a mass-conserving flow field, which keeps it well-posed.
+        residual, total = math.inf, 0
+        for _ in range(cfg.max_outer_iterations):
+            residual, iters = self._pressure_loop_steady(unknowns, index, n)
+            total += iters
+            energy_change = self._solve_energy_steady()
+            if residual < cfg.tol and energy_change < cfg.tol:
+                return StepResult(time=0.0, iterations=total, residual=residual,
+                                  converged=True)
+        return StepResult(time=0.0, iterations=total, residual=residual, converged=False)
+
+    def _pressure_loop_steady(self, unknowns: list[Node], index: dict[str, int],
+                              n: int) -> tuple[float, int]:
+        """Iterate flows + the pressure-correction equation to convergence (fixed T)."""
+        cfg = self.config
+        scale = self._mass_scale()
+        residual = math.inf
         for it in range(1, cfg.max_outer_iterations + 1):
             self._update_flows_steady()
-
             rows: list[int] = []
             cols: list[int] = []
             data: list[float] = []
             b = np.zeros(n)
-
             for node in unknowns:
                 i = index[node.id]
                 diag = 0.0
                 outflow = -node.mass_source
-                for e in net.elements_at(node):
+                for e in self.network.elements_at(node):
                     d = self._conductance_steady(e)
                     diag += d
                     other = e.downstream if e.upstream is node else e.upstream
-                    sign = 1.0 if e.upstream is node else -1.0
-                    outflow += sign * e.mdot
+                    outflow += (1.0 if e.upstream is node else -1.0) * e.mdot
                     if not other.is_boundary:
                         rows.append(i)
                         cols.append(index[other.id])
@@ -95,18 +113,14 @@ class PCIMSolver(Solver):
                 cols.append(i)
                 data.append(diag)
                 b[i] = -outflow
-
             residual = float(np.max(np.abs(b))) / scale
             if residual < cfg.tol:
-                return StepResult(time=0.0, iterations=it, residual=residual, converged=True)
-
+                return residual, it
             a = csr_matrix((data, (rows, cols)), shape=(n, n))
             p_corr = sparse_solve(a, b)
             for node in unknowns:
                 node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
-
-        return StepResult(time=0.0, iterations=cfg.max_outer_iterations,
-                          residual=residual, converged=False)
+        return residual, cfg.max_outer_iterations
 
     # ---- transient time step -------------------------------------------------------
 
@@ -126,6 +140,8 @@ class PCIMSolver(Solver):
         resid_o = {e.id: self._old_momentum_residual(e, rho_o, mdot_o, alpha)
                    for e in net.elements.values()}
         outflow_o = {node.id: self._net_outflow(node, mdot_o) for node in net.nodes.values()}
+        p_o = {node.id: node.state.p0 for node in net.nodes.values()}
+        h0_o = {node.id: node.state.h0 for node in net.nodes.values()}
 
         unknowns = net.solve_order()
         index = {node.id: i for i, node in enumerate(unknowns)}
@@ -134,23 +150,41 @@ class PCIMSolver(Solver):
             return self._converge_flows_only(
                 lambda: self._update_flows_transient(dt, alpha, mdot_o, resid_o), time=t)
 
-        residual = math.inf
-        scale = self._mass_scale()
+        loop = (unknowns, index, n, dt, alpha, mdot_o, resid_o, outflow_o, rho_o)
+        if not cfg.solve_energy:
+            residual, iters = self._pressure_loop_transient(*loop)
+            return StepResult(time=t, iterations=iters, residual=residual,
+                              converged=residual < cfg.tol)
 
+        residual, total = math.inf, 0
+        for _ in range(cfg.max_outer_iterations):
+            residual, iters = self._pressure_loop_transient(*loop)
+            total += iters
+            energy_change = self._solve_energy_transient(dt, alpha, rho_o, mdot_o, h0_o, p_o)
+            if residual < cfg.tol and energy_change < cfg.tol:
+                return StepResult(time=t, iterations=total, residual=residual, converged=True)
+        return StepResult(time=t, iterations=total, residual=residual, converged=False)
+
+    def _pressure_loop_transient(self, unknowns: list[Node], index: dict[str, int], n: int,
+                                 dt: float, alpha: float, mdot_o: dict[str, float],
+                                 resid_o: dict[str, float], outflow_o: dict[str, float],
+                                 rho_o: dict[str, float]) -> tuple[float, int]:
+        """Iterate flows + the transient pressure-correction equation to convergence."""
+        cfg = self.config
+        scale = self._mass_scale()
+        residual = math.inf
         for it in range(1, cfg.max_outer_iterations + 1):
             self._update_flows_transient(dt, alpha, mdot_o, resid_o)
-
             rows: list[int] = []
             cols: list[int] = []
             data: list[float] = []
             b = np.zeros(n)
-
             for node in unknowns:
                 i = index[node.id]
                 # Storage diagonal: V (drho/dp) / dt  (compressibility coupling, eq. 17).
                 diag = node.volume * self._drho_dp(node) / dt
                 outflow = self._net_outflow(node)
-                for e in net.elements_at(node):
+                for e in self.network.elements_at(node):
                     s = self._sensitivity_transient(e, dt, alpha)
                     diag += alpha * s
                     other = e.downstream if e.upstream is node else e.upstream
@@ -164,18 +198,14 @@ class PCIMSolver(Solver):
                 # Transient continuity residual G_i (eq. 13).
                 storage = node.volume * (self._density(node) - rho_o[node.id]) / dt
                 b[i] = -(storage + alpha * outflow + (1.0 - alpha) * outflow_o[node.id])
-
             residual = float(np.max(np.abs(b))) / scale
             if residual < cfg.tol:
-                return StepResult(time=t, iterations=it, residual=residual, converged=True)
-
+                return residual, it
             a = csr_matrix((data, (rows, cols)), shape=(n, n))
             p_corr = sparse_solve(a, b)
             for node in unknowns:
                 node.state.p0 += cfg.relaxation * float(p_corr[index[node.id]])
-
-        return StepResult(time=t, iterations=cfg.max_outer_iterations,
-                          residual=residual, converged=False)
+        return residual, cfg.max_outer_iterations
 
     def _converge_flows_only(self, update_flows, time: float) -> StepResult:
         """Iterate the face-flow update to convergence when there are no pressure unknowns.
@@ -280,6 +310,124 @@ class PCIMSolver(Solver):
         mag = (-a + math.sqrt(a * a + 4.0 * b * abs(rhs))) / (2.0 * b)
         return math.copysign(mag, rhs)
 
+    # ---- energy equation -----------------------------------------------------------
+
+    def _solve_energy_steady(self) -> float:
+        return self._solve_energy(dt=1.0, alpha=1.0, rho_o=None, mdot_o=None,
+                                  h0_o=None, p_o=None)
+
+    def _solve_energy_transient(self, dt: float, alpha: float, rho_o: dict[str, float],
+                                mdot_o: dict[str, float], h0_o: dict[str, float],
+                                p_o: dict[str, float]) -> float:
+        return self._solve_energy(dt, alpha, rho_o, mdot_o, h0_o, p_o)
+
+    def _solve_energy(self, dt: float, alpha: float, rho_o: dict[str, float] | None,
+                      mdot_o: dict[str, float] | None, h0_o: dict[str, float] | None,
+                      p_o: dict[str, float] | None) -> float:
+        """Assemble and solve the total-enthalpy transport equation (eqs. 29-34).
+
+        Upwind convection of h0 by the (already-solved) face mass flows, plus a storage
+        term and heat input. ``rho_o is None`` selects the steady form (no time terms,
+        convection fully weighted). Updates each unknown node's h0 and temperature, and
+        returns the maximum relative temperature change (for convergence).
+        """
+        net = self.network
+        steady = rho_o is None
+        conv_w = 1.0 if steady else alpha
+
+        # Temperature-Dirichlet nodes (pressure boundaries, fixed-T inlets): set h0 from
+        # the fixed temperature plus the local kinetic energy.
+        for node in net.nodes.values():
+            if node.is_boundary or node.fixed_temperature:
+                fluid = self._node_fluid(node)
+                v = self._node_velocity(node)
+                node.state.h0 = fluid.enthalpy(node.state.T) + 0.5 * v * v
+
+        unknowns = [n for n in net.nodes.values()
+                    if not (n.is_boundary or n.fixed_temperature)]
+        if not unknowns:
+            return 0.0
+        index = {node.id: i for i, node in enumerate(unknowns)}
+        m = len(unknowns)
+
+        rows: list[int] = []
+        cols: list[int] = []
+        data: list[float] = []
+        rhs = np.zeros(m)
+
+        for node in unknowns:
+            i = index[node.id]
+            kp = (self._density(node) * node.volume / dt) if not steady else 0.0
+            r = node.heat_source
+            if not steady:
+                assert rho_o is not None and h0_o is not None and p_o is not None
+                r += node.volume * rho_o[node.id] * h0_o[node.id] / dt
+                r += node.volume * (node.state.p0 - p_o[node.id]) / dt  # pressure work
+            old_flux = 0.0
+            for e in net.elements_at(node):
+                sign = 1.0 if e.upstream is node else -1.0
+                other = e.downstream if e.upstream is node else e.upstream
+                mdot_out = sign * e.mdot
+                if mdot_out >= 0.0:
+                    kp += conv_w * mdot_out  # outflow: upwind enthalpy is this node's
+                else:
+                    k_in = conv_w * (-mdot_out)  # inflow from neighbour: upwind is other
+                    if other.is_boundary or other.fixed_temperature:
+                        r += k_in * other.state.h0
+                    else:
+                        rows.append(i)
+                        cols.append(index[other.id])
+                        data.append(-k_in)
+                if not steady:
+                    assert mdot_o is not None and h0_o is not None
+                    out_o = sign * mdot_o[e.id]
+                    old_flux += out_o * (h0_o[node.id] if out_o >= 0.0 else h0_o[other.id])
+            if not steady:
+                r -= (1.0 - alpha) * old_flux
+            if kp < self._MDOT_FLOOR * self._mass_scale():
+                # Near-stagnant node with negligible storage: the h0 balance is degenerate,
+                # so leave its enthalpy unchanged (identity row) rather than divide by ~0.
+                rows.append(i)
+                cols.append(i)
+                data.append(1.0)
+                rhs[i] = node.state.h0
+            else:
+                rows.append(i)
+                cols.append(i)
+                data.append(kp)
+                rhs[i] = r
+
+        matrix = csr_matrix((data, (rows, cols)), shape=(m, m))
+        h0_new = sparse_solve(matrix, rhs)
+
+        max_change = 0.0
+        relax = self.config.relaxation
+        for node in unknowns:
+            fluid = self._node_fluid(node)
+            v = self._node_velocity(node)
+            updated = node.state.h0 + relax * (float(h0_new[index[node.id]]) - node.state.h0)
+            node.state.h0 = updated
+            t_old = node.state.T
+            t_new = fluid.temperature_from_enthalpy(updated - 0.5 * v * v)
+            # Limit the temperature change per outer iteration: the kinetic term couples
+            # T <-> rho <-> V, which can run away (low rho -> high V -> negative T) far from
+            # the solution. Bounding the step keeps T strictly positive and the coupling
+            # stable; it does not affect the converged result.
+            t_new = min(max(t_new, 0.7 * t_old), 1.3 * t_old)
+            node.state.T = t_new
+            max_change = max(max_change, abs(t_new - t_old) / t_old)
+        return max_change
+
+    def _node_velocity(self, node: Node) -> float:
+        """Representative speed at a node for the kinetic part of h0 (max face velocity)."""
+        rho = self._density(node)
+        speed = 0.0
+        for e in self.network.elements_at(node):
+            area = e.flow_area()
+            if math.isfinite(area) and area > 0.0:
+                speed = max(speed, abs(e.mdot) / (rho * area))
+        return speed
+
     # ---- state helpers -------------------------------------------------------------
 
     def _net_outflow(self, node: Node, mdot: dict[str, float] | None = None) -> float:
@@ -322,6 +470,12 @@ class PCIMSolver(Solver):
                 node.state.p0 = p_guess
             if node.state.T <= 0.0:
                 node.state.T = t_guess  # isothermal fill
+        if self.config.solve_energy:
+            # Initialise total enthalpy from temperature (kinetic part added once flows are
+            # known); only fill unset values so a committed transient state is preserved.
+            for node in nodes:
+                if node.state.h0 <= 0.0:
+                    node.state.h0 = self._node_fluid(node).enthalpy(node.state.T)
 
     def _mass_scale(self) -> float:
         """A representative mass-flow magnitude for relative tolerances / flooring."""

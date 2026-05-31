@@ -25,6 +25,7 @@ uniformly across component types.
 
 from __future__ import annotations
 
+import math
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
@@ -70,6 +71,12 @@ class Element(ABC):
         overrides it. Inertia is what gives rise to water-hammer in fast transients.
         """
         return 0.0
+
+    def flow_area(self) -> float:
+        """Cross-sectional flow area [m^2], used to size velocities for the kinetic part of
+        the total enthalpy (h0 = h + V^2/2). Infinite by default (so arealess components
+        such as valves contribute no kinetic energy); :class:`Pipe` overrides it."""
+        return math.inf
 
     def set_time(self, t: float) -> None:  # noqa: B027  (intentional optional no-op hook)
         """Hook for time-dependent elements (e.g. a closing valve). No-op by default."""

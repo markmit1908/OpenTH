@@ -48,3 +48,11 @@ class FluidModel(ABC):
     def total_enthalpy(self, T: float, velocity: float) -> float:
         """Total (stagnation) enthalpy h0 = h + V^2 / 2  (see paper, after eq. 3)."""
         return self.enthalpy(T) + 0.5 * velocity * velocity
+
+    @abstractmethod
+    def temperature_from_enthalpy(self, h: float) -> float:
+        """Invert the static enthalpy relation: return T such that enthalpy(T) = h.
+
+        Used by the energy solver to recover temperature from the solved total enthalpy
+        (after subtracting the kinetic part): T = inverse_enthalpy(h0 - V^2/2).
+        """

@@ -35,6 +35,9 @@ class SolverConfig:
     max_outer_iterations: int = 200
     max_pressure_iterations: int = 20
     tol: float = 1e-8
+    # Solve the energy equation for temperature (non-isothermal). Default off: the flow is
+    # isothermal and temperatures stay at their initial/boundary values.
+    solve_energy: bool = False
 
     def __post_init__(self) -> None:
         if not 0.5 <= self.alpha <= 1.0:

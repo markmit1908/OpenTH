@@ -11,12 +11,14 @@ kernels are earmarked for later C/C++ reimplementation (`native/`), and a two-wa
 interface is planned (`src/flowcalc/llm/`).
 
 **Project status.** The **steady-state and transient solvers are implemented and
-validated** (isothermal). Steady matches the closed-form isothermal compressible
-pipe-flow law to ~0% error; the transient marches to the steady solution as its fixed
-point, conserves mass exactly in the storage term, and reproduces water-hammer
-overpressure and the blow-down decay. See `examples/` and `tests/`. **Non-isothermal flow
-(energy-equation coupling) is the main remaining gap** — see "Implementing the solver
-core" below.
+validated**, including **non-isothermal flow** (energy-equation coupling). Steady matches
+the closed-form isothermal compressible pipe-flow law to ~0% error; the transient marches
+to the steady fixed point, conserves mass exactly, and reproduces water-hammer and the
+blow-down decay; the energy solve conserves total enthalpy in adiabatic flow (~1e-9) and
+matches `Q/ṁ` for heat addition. See `examples/` and `tests/`. The segregated
+pressure↔temperature coupling is robust below ~Mach 0.4 for pressure-driven flow (as with
+the isothermal pressure-driven solve); higher-Mach robustness and more non-pipe components
+are the remaining work — see "Implementing the solver core".
 
 ## Commands
 
@@ -35,6 +37,7 @@ mypy                                    # type-check (config in pyproject.toml)
 
 python examples/pipeline_steady.py      # paper §5.1 steady benchmark: PCIM vs analytical
 python examples/blowdown_transient.py   # paper §5.4 transient blow-down vs quasi-steady
+python examples/heated_pipe.py          # non-isothermal: expansion cooling vs heat addition
 flowcalc --version                      # console entry point (flowcalc.cli)
 ```
 
@@ -54,16 +57,18 @@ to the paper's equations — read it before touching the numerics):
   cell-centre-vs-face split is the paper's discretization (Fig. 1) and is load-bearing.
 - **`components/`** — concrete `Element`s. `Pipe` is canonical; non-pipe components
   (`Valve`, and future pump/compressor/turbine/orifice/heat-exchanger) plug in by
-  overriding `resistance` / `convective_dp`. `PressureBoundary` pins a node's pressure and
-  marks it `is_boundary` (removed from unknowns); `MassFlowBoundary` instead sets the
-  node's `mass_source` and leaves it an unknown.
+  overriding `resistance` / `convective_dp` / `inertance` / `flow_area`. `PressureBoundary`
+  pins a node's pressure (and temperature) and marks it `is_boundary` (removed from
+  unknowns); `MassFlowBoundary` instead sets the node's `mass_source` (and optionally a
+  fixed inlet `T`) and leaves the pressure an unknown.
 - **`fluids/`** — equations of state behind the `FluidModel` ABC. `IdealGas` implements
   `p = sρRT` (the paper's gas variant; `helium()` is the benchmark fluid); `Incompressible`
-  the liquid variant.
-- **`solver/`** — `PCIMSolver` (segregated SIMPLE-style loop), `SolverConfig` (notably
-  `alpha ∈ [0.5,1]` for the transient, and `relaxation ∈ (0,1]` for the steady solve), and
-  `linear.py` (Thomas for series pipelines, scipy sparse for networks — the solver
-  currently uses sparse).
+  the liquid variant. Each also provides `drho_dp` (compressibility) and
+  `temperature_from_enthalpy` for the transient/energy solves.
+- **`solver/`** — `PCIMSolver` (segregated SIMPLE-style loops), `SolverConfig` (notably
+  `alpha ∈ [0.5,1]` for the transient, `relaxation ∈ (0,1]`, and `solve_energy` to enable
+  the non-isothermal energy solve), and `linear.py` (Thomas for series pipelines, scipy
+  sparse for networks — the solver currently uses sparse).
 - **`io/`** — declarative dict/JSON (de)serialization; also the LLM exchange payload.
 - **`llm/`** — optional two-way LLM interface. **The core must never import this**; the
   `anthropic` SDK lives behind the `[llm]` extra.
@@ -83,27 +88,34 @@ high-Mach pressure ratio correct — see `docs/theory.md`.)
 
 `PCIMSolver.steady_state` and `PCIMSolver.step` are both implemented (segregated SIMPLE;
 steady is the dt→∞ limit of Section 4, transient adds the storage/inertia terms and the
-`alpha` time-weighting) and validated — **but only for isothermal flow**: temperature is
-held fixed and the energy equation is not yet solved. The remaining work:
+`alpha` time-weighting), and the **energy equation** (eqs. 29-34) is coupled when
+`SolverConfig.solve_energy` is set. All three are validated (`tests/`). The remaining work:
 
-- **Energy equation / non-isothermal flow** (eqs. 29-34): solve for total enthalpy `h₀`
-  (upwinded, tridiagonal/sparse) alternately with the pressure-correction loop, and update
-  temperatures. This unlocks the paper's adiabatic and heat-transfer cases (Fig. 3, 6, 7).
-- Non-pipe component closures (`Valve.resistance`/`Pipe` exist; pump/compressor/turbine/
-  orifice/heat-exchanger to come), each via `resistance`/`convective_dp`/`inertance`.
+- **Higher-Mach / harder networks**: the segregated pressure↔temperature coupling is robust
+  below ~Mach 0.4 for pressure-driven flow; above that the convective feedback strains the
+  simple under-relaxation. A more robust coupling (e.g. coupled solve, line search, or the
+  paper's exact total-pressure linearization) would extend the range.
+- **More non-pipe components** (`Valve`/`Pipe` exist; pump/compressor/turbine/orifice/
+  heat-exchanger to come), each via `resistance`/`convective_dp`/`inertance`/`flow_area`.
+- Wall heat transfer (temperature-dependent `q̇`); currently `Node.heat_source` is constant.
 
 Implementation notes worth preserving:
 - The flow update is **under-relaxed** (`SolverConfig.relaxation`): the convective term
-  couples flow to itself and diverges at high Mach in pressure-driven steady problems.
+  couples flow to itself and diverges at high Mach in pressure-driven problems.
 - A network with **no interior pressure unknowns** (e.g. one element between two pressure
   boundaries — the blow-down case) is handled by `_converge_flows_only`: momentum alone
   fixes the flows.
 - The transient is **mass-conservative by construction** (the storage term equals the
   θ-weighted flux integral); `tests/test_transient.py` checks this to ~1e-9.
+- **Energy is solved on a converged (mass-conserving) flow field** — the energy outer loop
+  alternates a *full* pressure/flow solve with one `h₀` update. Solving it on a
+  non-conserving field makes the convective diagonal (nodal outflow) mismatch the inflow
+  RHS and `h₀` blows up. The `h₀→T` step (via `½V²`) is also change-limited per iteration
+  because the T↔ρ↔V kinetic coupling can otherwise run away (low ρ → high V → negative T).
 
 Transcribe equations directly from `docs/papers/` (do **not** rely on memory or OCR), and
 **validate against the paper's benchmarks before trusting results**. Add each validated
-benchmark as a test (see `tests/test_steady.py`, `tests/test_transient.py`).
+benchmark as a test (see `tests/test_steady.py`, `test_transient.py`, `test_energy.py`).
 
 ## Conventions
 

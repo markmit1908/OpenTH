@@ -54,3 +54,12 @@ class Node:
     # Imposed mass flow into the node [kg/s] (+ = inflow, - = outflow); a source term in
     # the continuity balance. Zero for ordinary interior nodes.
     mass_source: float = 0.0
+
+    # Imposed heat input rate into the control volume [W] for the energy equation
+    # (the V*q_dot term of eq. 15). Zero = adiabatic.
+    heat_source: float = 0.0
+
+    # If True, the temperature (total enthalpy) is held fixed in the energy solve
+    # (Dirichlet), e.g. at a flow inlet. Pressure-fixed boundary nodes are treated as
+    # temperature-fixed too. Set automatically by the boundary helpers.
+    fixed_temperature: bool = False

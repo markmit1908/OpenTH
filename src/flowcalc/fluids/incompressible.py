@@ -27,6 +27,9 @@ class Incompressible(FluidModel):
     def enthalpy(self, T: float) -> float:
         return self.cp * T
 
+    def temperature_from_enthalpy(self, h: float) -> float:
+        return h / self.cp
+
     def sonic_velocity(self, p: float, T: float) -> float:
         # a = sqrt(K / rho), the liquid's acoustic (water-hammer) speed.
         return math.sqrt(self.bulk_modulus / self.rho)

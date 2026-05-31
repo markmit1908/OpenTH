@@ -42,34 +42,39 @@ as the paper describes.
 
 ## Verified
 
-- `python -m pytest` → **18 passed** (fluid EOS, topology, Thomas solver, steady-state
-  validation, and transient validation: march-to-steady, mass conservation, water-hammer)
+- `python -m pytest` → **22 passed** (fluid EOS, topology, Thomas solver, steady, transient
+  — march-to-steady, mass conservation, water-hammer — and energy: adiabatic h₀
+  conservation, heat addition, transient↔steady consistency)
 - `ruff check` → clean · `mypy` → clean (`py.typed` marker present)
-- `examples/pipeline_steady.py` reproduces the analytical isothermal pressure ratio to
-  **0.00% error up to Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%
+- `examples/pipeline_steady.py` reproduces the analytical pressure ratio to **0.00% up to
+  Mach 0.5**; `examples/blowdown_transient.py` tracks quasi-steady to <1%;
+  `examples/heated_pipe.py` shows expansion cooling and heat addition
 - `flowcalc --version` works
 
-## Steady + transient core — done ✅ (isothermal)
+## Steady + transient + energy core — done ✅
 
-Both `PCIMSolver.steady_state` (dt→∞ limit) and `PCIMSolver.step` (transient) are
-segregated SIMPLE iterations with Picard density updates and a fixed temperature field.
-Per-face momentum is `Δp = K·mdot·|mdot| + C` (+ inertia `(Δx/A) dṁ/dt` in the transient);
-continuity assembles the pressure-correction system (with a `V·∂ρ/∂p/Δt` storage diagonal
-in the transient), solved sparsely.
+`PCIMSolver.steady_state` (dt→∞ limit), `PCIMSolver.step` (transient), and the **energy
+equation** (`SolverConfig.solve_energy`) are segregated SIMPLE iterations with Picard
+density updates. Per-face momentum is `Δp = K·mdot·|mdot| + C` (+ inertia `(Δx/A) dṁ/dt` in
+the transient); continuity assembles the pressure-correction system (with a `V·∂ρ/∂p/Δt`
+storage diagonal in the transient). The energy solve transports total enthalpy `h₀` by
+upwind convection on the converged flow field, alternating with the pressure loop.
 
 - Steady validated vs. `p1²−p2² = G²RT(fL/D + 2ln(p1/p2))`.
-- Transient validated: marches to the steady fixed point (~1e-9), conserves mass in the
-  θ-weighted sense (~1e-9), produces water-hammer overpressure, and reproduces the
-  blow-down mass-flow decay.
-- Robustness: flow under-relaxation (`SolverConfig.relaxation`) tames the high-Mach
-  convective feedback; `_converge_flows_only` handles networks with no interior pressure
-  unknowns (single element between two pressure boundaries).
+- Transient validated: marches to the steady fixed point (~1e-9), conserves mass (~1e-9),
+  produces water-hammer, reproduces the blow-down decay.
+- Energy validated: adiabatic h₀ conserved (~1e-9, with expansion cooling); heat addition
+  matches `Q/ṁ`; transient energy matches the steady energy solve.
+- Robustness: flow under-relaxation (`relaxation`) tames the high-Mach convective feedback;
+  `_converge_flows_only` handles networks with no interior pressure unknowns; the energy
+  `h₀→T` step is change-limited to keep the kinetic coupling stable.
 
 ## Still the real work
 
-- **Energy equation / non-isothermal flow** (eqs. 29–34) — solve for total enthalpy `h₀`
-  alternately with the pressure loop and update temperatures. Unlocks Fig. 3, 6, 7.
+- **Higher-Mach robustness**: the pressure↔temperature coupling is solid below ~Mach 0.4
+  for pressure-driven flow; above that the segregated under-relaxation strains.
 - Non-pipe component closures beyond `Valve` (pump/compressor/turbine/orifice/heat-exchanger).
+- Wall heat transfer (temperature-dependent `q̇`); `Node.heat_source` is currently constant.
 
 Both [`theory.md`](theory.md) and [`../CLAUDE.md`](../CLAUDE.md) stress transcribing
 equations directly from the PDF and validating against the paper's benchmarks before
@@ -87,6 +92,6 @@ pip install -e ".[dev,llm]"
 
 ## Suggested next step
 
-Couple the **energy equation** (non-isothermal flow): solve total enthalpy `h₀` alternately
-with the pressure-correction loop and update temperatures, enabling the adiabatic and
-heat-transfer cases (Figs. 3, 6, 7).
+Harden the high-Mach pressure↔temperature coupling (coupled solve / line search / the
+paper's exact total-pressure linearization), and/or add the next non-pipe component model
+(pump or compressor) via the `resistance`/`convective_dp`/`inertance` interface.

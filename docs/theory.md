@@ -65,17 +65,26 @@ motivated the method).
 
 ## Implementation status
 
-Both the **steady-state solve** (`PCIMSolver.steady_state`, the dt→∞ limit) and the
-**transient time step** (`PCIMSolver.step`) are implemented as segregated SIMPLE iterations
-with Picard density updates, **assuming a fixed (isothermal) temperature field**. The
-transient adds the finite-volume storage term `V(ρ−ρᵒ)/Δt`, the momentum inertia
-`(Δx/A)(ṁ−ṁᵒ)/Δt`, and the θ-weighting `α` between time levels; its pressure-correction
-coefficients are `s = α/(I/Δt + 2αK|ṁ|)`, `cP = V(∂ρ/∂p)/Δt + α·Σsₑ`, `cnb = α·sₑ`.
+The **steady-state solve** (`PCIMSolver.steady_state`, the dt→∞ limit), the **transient
+time step** (`PCIMSolver.step`), and the **energy equation** (`solve_energy=True`) are all
+implemented as segregated SIMPLE iterations with Picard density updates. The transient adds
+the finite-volume storage term `V(ρ−ρᵒ)/Δt`, the momentum inertia `(Δx/A)(ṁ−ṁᵒ)/Δt`, and
+the θ-weighting `α`; its pressure-correction coefficients are `s = α/(I/Δt + 2αK|ṁ|)`,
+`cP = V(∂ρ/∂p)/Δt + α·Σsₑ`, `cnb = α·sₑ`.
+
+The **energy solve** transports total enthalpy `h₀` by upwind convection on the
+(already-converged, mass-conserving) flow field (eqs. 29–34): per node
+`kₚ h₀ᵢ = Σ kⱼ h₀ⱼ + rᵢ` with `k = (α or 1)·max(±ṁ, 0)`, a storage diagonal `Vρ/Δt`, and a
+RHS carrying heat `Q̇`, pressure work `V(p−pᵒ)/Δt`, and old-time fluxes. Temperature comes
+back as `T = (h₀ − ½V²)/cₚ`. The non-isothermal outer loop alternates a full pressure solve
+with one energy update until both converge.
 
 Validated (`tests/`): steady matches the closed-form isothermal pipe law to ~0%; the
 transient marches to the steady fixed point (~1e-9), conserves mass exactly in the
-θ-weighted sense (~1e-9), and produces water-hammer overpressure and the blow-down decay.
-**The energy equation (eqs. 29–34) is not yet coupled** — non-isothermal flow is pending.
+θ-weighted sense (~1e-9), and produces water-hammer + the blow-down decay; the energy solve
+conserves h₀ in adiabatic flow (~1e-9, with expansion cooling) and matches `Q/ṁ` for heat
+addition. The pressure↔temperature coupling is robust below ~Mach 0.4 for pressure-driven
+flow (higher-Mach robustness is future work).
 
 ## Benchmarks to validate against (Section 5)
 
@@ -89,6 +98,9 @@ transient marches to the steady fixed point (~1e-9), conserves mass exactly in t
 4. **Pressure-vessel blow-down** — slow transient where the implicit method is ~70–1000×
    faster than explicit methods (Fig. 10). Implemented + checked vs. quasi-steady:
    [`examples/blowdown_transient.py`](../examples/blowdown_transient.py). ✅
+5. **Non-isothermal flow** (Fig. 3, 6, 7) — energy equation. Adiabatic h₀ conservation
+   (expansion cooling) and heat addition (`Q/ṁ`) validated in `tests/test_energy.py`;
+   demo in [`examples/heated_pipe.py`](../examples/heated_pipe.py). ◑ (robust below ~M 0.4)
 
 ## Beyond pipes
 

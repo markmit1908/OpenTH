@@ -48,3 +48,6 @@ class Pipe(Element):
 
     def inertance(self) -> float:
         return self.length / self.area
+
+    def flow_area(self) -> float:
+        return self.area

@@ -51,6 +51,9 @@ class IdealGas(FluidModel):
     def enthalpy(self, T: float) -> float:
         return self.cp * T
 
+    def temperature_from_enthalpy(self, h: float) -> float:
+        return h / self.cp
+
     def sonic_velocity(self, p: float, T: float) -> float:
         return math.sqrt(self.gamma * self.s * self.R * T)
 

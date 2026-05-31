@@ -29,6 +29,7 @@ class PressureBoundary:
         self.node.is_boundary = True
         self.node.state.p0 = self.p
         self.node.state.T = self.T
+        self.node.fixed_temperature = True  # pressure boundaries also pin temperature
 
 
 @dataclass
@@ -36,11 +37,17 @@ class MassFlowBoundary:
     """Impose a mass flow into (+) or out of (-) a node [kg/s].
 
     Used both for steady demand and for transient events such as a valve closing, where
-    ``mdot`` is driven to zero. The node remains a pressure unknown.
+    ``mdot`` is driven to zero. The node remains a pressure unknown. If ``T`` is given, the
+    node's temperature is also pinned (appropriate for an inflow boundary when the energy
+    equation is solved).
     """
 
     node: Node
     mdot: float
+    T: float | None = None
 
     def apply(self) -> None:
         self.node.mass_source = self.mdot
+        if self.T is not None:
+            self.node.state.T = self.T
+            self.node.fixed_temperature = True
