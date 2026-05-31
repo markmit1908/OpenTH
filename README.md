@@ -1,17 +1,39 @@
-# FlowCalc
+# OpenTH
 
-A fluid **flow network calculator** built on Greyvenstein's implicit **Pressure Correction (PC / PCIM)**
-method for transient flow in pipe networks.
+**An open-source, Python-first, reactor-grade 1D thermal-hydraulic system code.**
 
-The solver is segregated (SIMPLE-style): it discretizes the continuity, momentum and energy equations
-with a finite-volume scheme and solves them iteratively via a **pressure-correction equation** at each
-time step. The same machinery handles **liquid and gas**, **isothermal and non-isothermal**, and **fast
-and slow transients**, and extends naturally to **non-pipe components** (valves, pumps, compressors,
-turbines, orifices, heat exchangers).
+OpenTH aims to be *the OpenMC of reactor thermal-hydraulics*: a transparent, scriptable, testable,
+and extensible thermal-fluid network solver for steady-state and transient reactor systems —
+filling the gap between Flownex-style system modelling and RELAP-class reactor transient analysis,
+with advanced reactors (gas-cooled, molten-salt) as the first target. See the
+**[Vision Statement](docs/vision-statement.md)** for the full concept, positioning, and roadmap.
 
-> Reference: G. P. Greyvenstein, *"An implicit method for the analysis of transient flows in pipe
-> networks"*, Int. J. Numer. Meth. Engng 2002; 53:1127–1143.
-> See [`docs/papers/`](docs/papers/) and [`docs/theory.md`](docs/theory.md).
+## Vision (in brief)
+
+- **Open and developer-grade.** Permissive license, public repo, version-controlled models,
+  CI-tested public benchmarks, transparent equations — vs. controlled/licensed codes like RELAP.
+- **Python is the moat.** A clean model-building API (à la OpenMC) over a high-performance solver
+  core; coupling to OpenMC, MOOSE, Cardinal, NekRS for neutronics/CFD.
+- **Phased physics.** v0.1 incompressible → v0.2 compressible gas → real-fluid properties → heat
+  structures → controls/trips → point kinetics → (eventually) two-phase. *Avoid full two-fluid
+  two-phase complexity early — "that is where codes go to die."*
+- **MVP target.** A helium-cooled reactor loop: core heat input, blower, recuperator/heat
+  exchanger, heat structures, controls, and a transient pump coastdown.
+- **Validation first.** A public benchmark suite (analytic friction → Edwards blowdown → natural
+  circulation → pump coastdown → PWR/gas/MSR loops → coupled neutronics-T/H) run on every release.
+
+## Current implementation
+
+The repository today is the **single-phase PCIM flow-network kernel** — roughly the v0.1–v0.2
+foundation of the vision above. It is built on Greyvenstein's implicit **Pressure Correction
+(PC / PCIM)** method: a segregated (SIMPLE-style) finite-volume solver for the continuity, momentum
+and energy equations, handling **liquid and gas**, **isothermal and non-isothermal**, and **fast and
+slow transients**, extensible to non-pipe components (valves, pumps/compressors, …).
+
+> The Python package currently imports as `flowcalc` (the prototype name); a rename to `openth`
+> is planned. Reference: G. P. Greyvenstein, *"An implicit method for the analysis of transient
+> flows in pipe networks"*, Int. J. Numer. Meth. Engng 2002; 53:1127–1143
+> (see [`docs/papers/`](docs/papers/), [`docs/theory.md`](docs/theory.md)).
 
 ## Status
 

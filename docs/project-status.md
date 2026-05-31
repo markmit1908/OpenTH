@@ -29,6 +29,7 @@ FlowCalc/
 ├── examples/         pipeline_steady · blowdown_transient · heated_pipe · pump_loop
 ├── docs/
 │   ├── papers/       Greyvenstein-2001-...pdf
+│   ├── vision-statement.md  OpenTH founding concept + roadmap (north star)
 │   ├── theory.md     maps every module to the paper's equations
 │   ├── user-guide.md end-user manual (FlowModel API + running the benchmarks)
 │   └── project-status.md   ← this file

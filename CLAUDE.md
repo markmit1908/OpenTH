@@ -4,12 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-FlowCalc is a **fluid flow-network solver** implementing Greyvenstein's implicit
-**Pressure-Correction (PC / PCIM)** method (Int. J. Numer. Meth. Engng 2002; 53:1127–1143;
-PDF in `docs/papers/`, distilled in `docs/theory.md`). Python-first prototype; performance
-kernels are earmarked for later C/C++ reimplementation (`native/`), and a two-way LLM
-interface is planned (`src/flowcalc/llm/`). End-user docs (the `FlowModel` API, running the
-benchmarks) are in `docs/user-guide.md`.
+**OpenTH** (project renamed from "FlowCalc") aims to be an open-source, Python-first,
+reactor-grade 1D thermal-hydraulic system code — the OpenMC of reactor thermal hydraulics.
+See `docs/vision-statement.md` for the founding concept and roadmap.
+
+The repository today is the **single-phase flow-network kernel** (the v0.1–v0.2 foundation
+of that vision): a solver implementing Greyvenstein's implicit **Pressure-Correction
+(PC / PCIM)** method (Int. J. Numer. Meth. Engng 2002; 53:1127–1143; PDF in `docs/papers/`,
+distilled in `docs/theory.md`). Python-first prototype; performance kernels are earmarked
+for later C/C++ reimplementation (`native/`), and a two-way LLM interface is planned
+(`src/flowcalc/llm/`). End-user docs (the `FlowModel` API, running the benchmarks) are in
+`docs/user-guide.md`.
+
+> The Python package still imports as `flowcalc`; a rename to `openth` is planned but not
+> yet done — keep using `flowcalc` in code until then.
 
 **Project status.** The **steady-state and transient solvers are implemented and
 validated**, including **non-isothermal flow** (energy-equation coupling). Steady matches
